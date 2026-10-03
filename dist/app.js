@@ -104,9 +104,11 @@
 
   function targetForFeature(feature) { return countries.find(country => country.iso === featureIso(feature)); }
 
+  function flagAsset(country) { return `./assets/flags/${country.id}.svg`; }
+
   function polygonColor(feature) {
     const target = targetForFeature(feature);
-    if (target) return state.discovered.has(target.id) ? target.accent : "#f1c74c";
+    if (target) return state.discovered.has(target.id) ? target.accent : "#9da6a2";
     const continent = feature.properties && feature.properties.CONTINENT;
     const names = { Asia: "아시아", Europe: "유럽", Africa: "아프리카", "North America": "아메리카", "South America": "아메리카", Oceania: "오세아니아", Antarctica: "남극" };
     return regionColors[names[continent]] || "#a9b981";
@@ -114,13 +116,12 @@
 
   function makePin(country) {
     const button = document.createElement("button");
+    const found = state.discovered.has(country.id);
     button.type = "button";
-    button.className = `globe-pin${state.discovered.has(country.id) ? " is-found" : ""}`;
+    button.className = `country-flag-marker ${found ? "is-found" : "is-locked"}`;
     button.dataset.country = country.id;
-    button.setAttribute("aria-label", `${country.name} ${state.discovered.has(country.id) ? "다시 보기" : "발견하기"}`);
-    const inner = document.createElement("span");
-    inner.textContent = state.discovered.has(country.id) ? country.icon : "?";
-    button.appendChild(inner);
+    button.setAttribute("aria-label", `${country.name}, ${found ? "도감 열림, 다시 보기" : "도감 잠김, 퀴즈 풀기"}`);
+    button.innerHTML = `<span class="flag-cloth" aria-hidden="true"><img src="${flagAsset(country)}" alt="" draggable="false" /></span><span class="flag-status" aria-hidden="true">${found ? "✓" : "?"}</span>`;
     button.addEventListener("click", event => { event.stopPropagation(); openCountry(country.id); });
     return button;
   }
@@ -151,16 +152,22 @@
         .polygonsData(state.geojson.features)
         .polygonCapColor(polygonColor)
         .polygonSideColor(() => "rgba(35,69,55,.55)")
-        .polygonStrokeColor(() => "rgba(255,248,210,.78)")
-        .polygonAltitude(feature => targetForFeature(feature) ? 0.018 : 0.007)
+        .polygonStrokeColor(feature => {
+          const target = targetForFeature(feature);
+          return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
+        })
+        .polygonAltitude(feature => {
+          const target = targetForFeature(feature);
+          return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
+        })
         .polygonLabel(feature => {
           const target = targetForFeature(feature);
-          return target ? `<b style="font-size:16px">${target.flag} ${target.name}</b><br>${state.discovered.has(target.id) ? "발견한 나라" : "눌러서 탐험하기"}` : "";
+          return target ? `<b style="display:flex;align-items:center;gap:7px;font-size:16px"><img src="${flagAsset(target)}" alt="" style="width:28px;border-radius:3px">${target.name}</b><br>${state.discovered.has(target.id) ? "✓ 도감이 열렸어요" : "? 아직 잠긴 나라예요"}` : "";
         })
         .onPolygonClick(feature => {
           const target = targetForFeature(feature);
           if (target) openCountry(target.id);
-          else showToast("노란 물음표가 있는 나라부터 탐험해 보자!");
+          else showToast("회색 국기가 있는 나라부터 탐험해 보자!");
         })
         .htmlElementsData(countries)
         .htmlLat("lat")
@@ -190,7 +197,17 @@
 
   function refreshGlobe() {
     if (!state.globe || !state.geojson) return;
-    state.globe.polygonCapColor(polygonColor).polygonsData([...state.geojson.features]);
+    state.globe
+      .polygonCapColor(polygonColor)
+      .polygonStrokeColor(feature => {
+        const target = targetForFeature(feature);
+        return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
+      })
+      .polygonAltitude(feature => {
+        const target = targetForFeature(feature);
+        return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
+      })
+      .polygonsData([...state.geojson.features]);
     state.globe.htmlElementsData([]).htmlElementsData(countries).htmlElement(makePin);
   }
 
@@ -224,7 +241,7 @@
     els.collectionGrid.innerHTML = countries.map(country => {
       const found = state.discovered.has(country.id);
       if (found) {
-        return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--card-color:${country.color}"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="country-card-inner"><span class="card-flag" aria-hidden="true">${country.flag}</span><h3>${country.name}</h3><p>${country.region} · ${country.place}</p></span></button>`;
+        return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--card-color:${country.color}"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="country-card-inner"><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" alt="" /></span><h3>${country.name}</h3><p>${country.region} · ${country.place}</p></span></button>`;
       }
       return `<div class="country-card is-locked" aria-label="아직 발견하지 못한 ${country.region}의 나라"><div class="country-card-inner"><span class="mystery">?</span><h3>${country.region}의 비밀</h3><p>지구본에서 찾아보세요.</p></div></div>`;
     }).join("");
@@ -250,7 +267,7 @@
     els.dialogContent.innerHTML = `
       <section style="--country-tint:${country.color};--country-accent:${country.accent}">
         <div class="country-hero">
-          <div class="country-flag" aria-hidden="true">${country.flag}</div>
+          <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" alt="" /></div>
           <div><p class="eyebrow">${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.region} · ${country.story}</p></div>
         </div>
         <div class="fact-grid">${country.facts.map(fact => `<article class="fact-card"><span class="fact-icon" aria-hidden="true">${fact[0]}</span><strong>${fact[1]}</strong><p>${fact[2]}</p></article>`).join("")}</div>
@@ -293,7 +310,7 @@
   }
 
   function showSuccess(country) {
-    els.dialogContent.innerHTML = `<section class="success-screen"><div class="success-burst" aria-hidden="true">${country.icon}</div><p class="eyebrow">도감 스티커가 열렸어요!</p><h2 id="dialogTitle">${country.name} 발견!</h2><p>${country.name}의 물음표가 멋진 ${country.icon} 스티커로 바뀌었어요.</p><button type="button" class="primary-button" id="continueExplore">다음 나라 찾기</button></section>`;
+    els.dialogContent.innerHTML = `<section class="success-screen"><div class="success-burst" aria-hidden="true">${country.icon}</div><p class="eyebrow">도감 스티커가 열렸어요!</p><h2 id="dialogTitle">${country.name} 발견!</h2><p>회색이던 ${country.name} 영토와 국기가 선명한 색으로 깨어났어요.</p><button type="button" class="primary-button" id="continueExplore">다음 나라 찾기</button></section>`;
     document.getElementById("continueExplore").addEventListener("click", closeCountryDialog);
   }
 
@@ -301,7 +318,7 @@
     els.dialog.hidden = true;
     document.body.style.overflow = "";
     els.guideTitle.textContent = state.discovered.size === countries.length ? "세계지도 완성!" : "다음에는 어디로 갈까?";
-    els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 모든 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 또 다른 물음표를 찾아보자!";
+    els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 모든 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 또 다른 회색 국기를 찾아보자!";
   }
 
   function setView(view) {

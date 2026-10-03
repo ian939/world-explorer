@@ -125,6 +125,12 @@ img { pointer-events: none; -webkit-user-drag: none; }
 .explore-copy h1 { margin: 0; font: clamp(38px, 4vw, 62px)/.98 "Jua", sans-serif; color: var(--blue); letter-spacing: -.025em; text-shadow: 0 3px #fff4dc; }
 .explore-copy h1 em { color: var(--orange); font-style: normal; }
 .drag-tip { display: inline-flex; align-items: center; gap: 7px; margin: 26px 0 0; padding: 9px 14px; border: 2px dashed rgba(57,83,103,.33); border-radius: 18px; background: rgba(255,250,235,.68); font-weight: 800; transform: rotate(-1deg); }
+.map-status-key { display: grid; gap: 7px; width: max-content; margin-top: 14px; padding: 10px 13px; border-left: 3px solid rgba(31,84,167,.28); color: #536269; background: rgba(255,250,235,.48); font-size: 13px; font-weight: 800; }
+.map-status-key > span { display: flex; align-items: center; gap: 7px; }
+.map-status-key b { color: var(--ink); font-weight: 900; }
+.key-flag { display: inline-grid; place-items: center; width: 30px; height: 24px; overflow: hidden; border-radius: 5px; background: #fff; box-shadow: 0 2px 0 rgba(48,55,54,.18); font-style: normal; line-height: 1; }
+.key-flag img { width: 100%; height: 100%; object-fit: cover; }
+.key-flag.is-locked { filter: grayscale(1) saturate(.08); opacity: .65; }
 
 .globe-zone { position: relative; z-index: 4; align-self: center; min-width: 0; }
 .globe-wrap {
@@ -154,26 +160,37 @@ img { pointer-events: none; -webkit-user-drag: none; }
 .globe-controls button { width: 50px; height: 50px; border: 3px solid #fff8df; border-radius: 50%; color: #fff; background: var(--orange); box-shadow: 0 5px 0 #a85020; font: 38px/1 "Jua", sans-serif; }
 .globe-controls span { padding: 8px 13px; border-radius: 13px; color: #6d562a; background: #fff0bd; box-shadow: 0 3px 0 #d1b56c; font: 16px/1 "Jua", sans-serif; white-space: nowrap; }
 
-.globe-pin {
+.country-flag-marker {
   position: relative;
-  display: grid;
+  display: flex;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 4px solid #fff5c9;
-  border-radius: 50% 50% 50% 14%;
-  color: #734f00;
-  background: linear-gradient(145deg, #fff16c, #f4a51f);
-  box-shadow: 0 5px 0 #a76618, 0 10px 15px rgba(6,32,55,.34);
-  font: 29px/1 "Jua", sans-serif;
-  transform: translate(-50%, -90%) rotate(-45deg);
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 51px;
+  padding: 4px;
+  border: 3px solid #fff8e7;
+  border-radius: 10px 10px 10px 3px;
+  color: #fff;
+  background: #f8f0dc;
+  box-shadow: 0 5px 0 #705f49, 0 10px 15px rgba(6,32,55,.3);
+  transform: translate(-50%, -94%);
   animation: pin-float 2.1s ease-in-out infinite;
+  transition: filter .45s ease, transform .45s ease, background .45s ease, box-shadow .45s ease;
 }
-.globe-pin > span { transform: rotate(45deg); }
-.globe-pin.is-found { background: #fff8dd; border-color: #fff; }
-.globe-pin:focus-visible { outline: 5px solid #fff; outline-offset: 3px; }
-.globe-pin:nth-child(3n+2) { animation-delay: .25s; }
-.globe-pin:nth-child(3n) { animation-delay: .5s; }
+.country-flag-marker::after { content: ""; position: absolute; left: 4px; bottom: -13px; width: 3px; height: 14px; border-radius: 2px; background: #6d5941; }
+.flag-cloth { display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 6px; background: #fff; line-height: 1; }
+.flag-cloth img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.flag-status { position: absolute; right: -10px; bottom: -10px; display: grid; place-items: center; width: 28px; height: 28px; border: 3px solid #fff8e7; border-radius: 50%; font: 19px/1 "Jua", sans-serif; box-shadow: 0 3px 0 rgba(50,45,36,.28); }
+.country-flag-marker.is-locked { background: #c8ceca; filter: grayscale(.96) saturate(.08); opacity: .84; }
+.country-flag-marker.is-locked .flag-cloth { opacity: .68; }
+.country-flag-marker.is-locked .flag-status { color: #fff; background: #69736e; }
+.country-flag-marker.is-found { background: #f6c943; border-color: #fff; box-shadow: 0 5px 0 #b96b19, 0 10px 17px rgba(6,32,55,.32); }
+.country-flag-marker.is-found .flag-status { color: #fff; background: #4d9761; }
+.country-flag-marker:active { transform: translate(-50%, -90%) scale(.96); }
+.country-flag-marker:focus-visible { outline: 5px solid #fff; outline-offset: 3px; }
+.country-flag-marker:nth-child(3n+2) { animation-delay: .25s; }
+.country-flag-marker:nth-child(3n) { animation-delay: .5s; }
 
 .guide-dock { position: relative; z-index: 5; align-self: end; min-height: 260px; display: flex; align-items: flex-end; justify-content: center; }
 .guide-dock img, .mascot-fallback { width: min(18vw, 235px); max-height: 265px; object-fit: contain; filter: drop-shadow(0 12px 9px rgba(47,45,34,.24)); }
@@ -222,6 +239,7 @@ img { pointer-events: none; -webkit-user-drag: none; }
 button.country-card:hover .country-card-inner, button.country-card:focus-visible .country-card-inner { transform: translateY(-7px) scale(1.025); }
 .card-icon { position: absolute; z-index: 2; top: -11px; left: 50%; font-size: 69px; line-height: 1; filter: drop-shadow(3px 5px 1px rgba(40,37,31,.2)); transform: translateX(-50%); }
 .card-flag { position: absolute; top: 9px; right: 10px; font-size: 22px; }
+.card-flag img { display: block; width: 34px; aspect-ratio: 4 / 3; border: 2px solid rgba(255,255,255,.9); border-radius: 4px; object-fit: cover; box-shadow: 0 2px 0 rgba(55,47,34,.17); }
 .country-card h3 { margin: 0; color: var(--blue); font: 23px/1 "Jua", sans-serif; }
 .country-card p { margin: 5px 0 0; font-size: 12px; font-weight: 800; }
 .country-card.is-locked { align-items: center; opacity: .88; }
@@ -236,7 +254,8 @@ button.country-card:hover .country-card-inner, button.country-card:focus-visible
 .guardian-dialog { width: min(520px, 94vw); clip-path: none; border-radius: 24px; }
 .dialog-close { position: absolute; z-index: 5; top: 12px; right: 13px; width: 48px; border: 0; border-radius: 50%; color: #fff; background: #365079; font: 32px/1 "Jua", sans-serif; box-shadow: 0 4px 0 #172c4e; }
 .country-hero { display: grid; grid-template-columns: 110px 1fr; gap: 22px; align-items: center; padding: 15px 18px; background: var(--country-tint); transform: rotate(-.5deg); clip-path: polygon(1% 5%, 98% 0, 100% 93%, 4% 100%); }
-.country-flag { font-size: 72px; text-align: center; filter: drop-shadow(2px 5px 0 rgba(54,48,37,.15)); }
+.country-flag { display: grid; place-items: center; text-align: center; filter: drop-shadow(2px 5px 0 rgba(54,48,37,.15)); }
+.country-flag img { display: block; width: 96px; aspect-ratio: 4 / 3; border: 4px solid #fff8e7; border-radius: 10px; object-fit: cover; }
 .country-hero h2, .mission-screen h2, .success-screen h2, .guardian-dialog h2 { margin: 0; color: var(--blue); font: clamp(34px, 5vw, 52px)/1.08 "Jua", sans-serif; }
 .country-hero p { margin: 7px 0; font-weight: 800; }
 .fact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 27px 0; }
@@ -293,6 +312,8 @@ button.country-card:hover .country-card-inner, button.country-card:focus-visible
   .explore-copy .eyebrow { display: none; }
   .explore-copy h1 { font-size: clamp(31px, 8vw, 46px); }
   .drag-tip { margin-top: 12px; padding: 6px 10px; font-size: 13px; }
+  .map-status-key { gap: 4px; margin-top: 8px; padding: 7px 9px; font-size: 11px; }
+  .key-flag { width: 25px; height: 20px; font-size: 17px; }
   .globe-zone { margin-top: 24px; }
   .globe-wrap { width: min(97vw, 64vh); }
   .globe-controls { bottom: -4%; }

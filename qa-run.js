@@ -2,25 +2,27 @@ async (page) => {
   await page.goto("http://127.0.0.1:4173");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.waitForSelector(".globe-pin");
+  await page.waitForSelector(".country-flag-marker");
 
   const result = {};
   result.viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
   result.bodyUserSelect = await page.locator("body").evaluate(element => getComputedStyle(element).userSelect);
   result.globeTouchAction = await page.locator("#globeWrap").evaluate(element => getComputedStyle(element).touchAction);
   result.webglCanvasCount = await page.locator("#globeCanvas canvas").count();
-  result.pinCount = await page.locator(".globe-pin").count();
+  result.pinCount = await page.locator(".country-flag-marker").count();
   result.pinSize = await page.locator('[data-country="kr"]').evaluate(element => {
     const box = element.getBoundingClientRect();
     return { width: box.width, height: box.height };
   });
 
-  await page.locator('[data-country="kr"]').click({ force: true });
+  await page.locator('[data-country="kr"]').evaluate(element => element.click());
   result.dialogCountry = await page.locator("#dialogTitle").textContent();
   await page.getByRole("button", { name: "탐험 미션 시작" }).click();
   await page.getByRole("button", { name: "안녕하세요" }).click();
   result.success = await page.locator("#dialogTitle").textContent();
   await page.getByRole("button", { name: "다음 나라 찾기" }).click();
+  result.unlockedMarkerClass = await page.locator('[data-country="kr"]').getAttribute("class");
+  result.unlockedFlagStatus = await page.locator('[data-country="kr"] .flag-status').textContent();
 
   await page.getByRole("button", { name: /나의 세계도감/ }).click();
   result.cardVisible = await page.locator('[data-open-country="kr"]').isVisible();

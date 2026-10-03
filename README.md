@@ -11,6 +11,7 @@
 - Globe.GL과 실제 GeoJSON 국가 경계를 사용한 3D 지구본
 - 그림책 구아슈 질감의 전용 2:1 바다 텍스처
 - 드래그와 버튼으로 회전하는 12개국 탐험 지점
+- 12개국 실제 SVG 국기와 잠김/해금 색상 상태
 - 나라별 세 가지 학습 카드와 한 가지 미션
 - 틀려도 실패하지 않고 힌트를 받는 퀴즈
 - 미발견 `?`가 대표 아이콘으로 바뀌는 도감
@@ -37,7 +38,8 @@
    ├─ app.js
    ├─ assets/
    │  ├─ compass-mascot.png
-   │  └─ ocean-paper-texture.png
+   │  ├─ ocean-paper-texture.png
+   │  └─ flags/
    ├─ data/
    │  └─ countries.geojson
    └─ vendor/
@@ -45,5 +47,7 @@
 ```
 
 현재 진행 기록은 `localStorage`에만 저장되므로 같은 브라우저와 기기에서 유지됩니다.
+
+국기 SVG는 MIT 라이선스의 `lipis/flag-icons` 7.3.2 컬렉션을 사용하며 라이선스 전문은 `docs/third-party/LICENSE.flag-icons.txt`에 보관합니다.
 
 `qa-run.js`는 Playwright CLI에서 iPad 터치 환경의 주요 흐름과 보호 장치를 다시 확인할 때 사용하는 점검 시나리오입니다.
