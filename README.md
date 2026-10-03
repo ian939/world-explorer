@@ -8,8 +8,9 @@
 
 ## 포함된 기능
 
-- 드래그와 버튼으로 회전하는 지구본
-- 실제 위도·경도에 배치된 12개국 탐험 지점
+- Globe.GL과 실제 GeoJSON 국가 경계를 사용한 3D 지구본
+- 그림책 구아슈 질감의 전용 2:1 바다 텍스처
+- 드래그와 버튼으로 회전하는 12개국 탐험 지점
 - 나라별 세 가지 학습 카드와 한 가지 미션
 - 틀려도 실패하지 않고 힌트를 받는 퀴즈
 - 미발견 `?`가 대표 아이콘으로 바뀌는 도감
@@ -27,13 +28,20 @@
 ├─ README.md
 ├─ qa-run.js
 ├─ docs/
-│  └─ 기획서.md
+│  ├─ 기획서.md
+│  ├─ design-reference-prompts.md
+│  └─ design-references/
 └─ dist/
    ├─ index.html
    ├─ styles.css
    ├─ app.js
-   └─ assets/
-      └─ compass-mascot.png
+   ├─ assets/
+   │  ├─ compass-mascot.png
+   │  └─ ocean-paper-texture.png
+   ├─ data/
+   │  └─ countries.geojson
+   └─ vendor/
+      └─ globe.gl.min.js
 ```
 
 현재 진행 기록은 `localStorage`에만 저장되므로 같은 브라우저와 기기에서 유지됩니다.
