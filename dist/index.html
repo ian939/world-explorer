@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a66c2" />
+    <meta name="description" content="지구본을 돌리고 세계 여러 나라를 발견하는 어린이 탐험 게임" />
+    <title>빙글빙글 세계탐험대</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230a66c2'/%3E%3Ccircle cx='32' cy='32' r='22' fill='%234fd1c5'/%3E%3Cpath d='M17 28c7-9 14-9 19-5 5 4 10 2 13 6-3 4-9 3-12 8-3 5-9 8-14 4-5-4-7-8-6-13Z' fill='%23ffd34e'/%3E%3Cpath d='M32 9v46M10 32h44' stroke='white' stroke-width='3' opacity='.7'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="빙글빙글 세계탐험대">
+          <span class="brand-mark" aria-hidden="true">🌍</span>
+          <div>
+            <strong>빙글빙글 세계탐험대</strong>
+            <span>물음표 지도를 밝혀요!</span>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <div class="progress-pill" aria-label="발견 진행도">
+            <span aria-hidden="true">⭐</span>
+            <strong id="progressText">0 / 12</strong>
+            <span class="progress-label">발견</span>
+          </div>
+          <button id="soundButton" class="icon-button" type="button" aria-label="소리 켜기" aria-pressed="false">🔇</button>
+          <button id="guardianButton" class="guardian-button" type="button" data-adult-control aria-label="보호자 설정"><span aria-hidden="true">⚙️</span><span class="guardian-text">보호자</span></button>
+        </div>
+      </header>
+
+      <nav class="view-tabs" aria-label="화면 선택">
+        <button class="view-tab is-active" type="button" data-view="explore" aria-selected="true">
+          <span aria-hidden="true">🧭</span> 지구본 탐험
+        </button>
+        <button class="view-tab" type="button" data-view="collection" aria-selected="false">
+          <span aria-hidden="true">📖</span> 나의 세계도감
+        </button>
+      </nav>
+
+      <main>
+        <section id="exploreView" class="view-panel explore-view" aria-labelledby="exploreTitle">
+          <div class="globe-stage">
+            <div class="stage-heading">
+              <div>
+                <p class="eyebrow">오늘의 탐험</p>
+                <h1 id="exploreTitle">지구본을 돌려 나라를 찾아봐!</h1>
+              </div>
+              <p class="drag-tip"><span aria-hidden="true">☝️</span> 손가락으로 빙글빙글</p>
+            </div>
+
+            <div class="globe-wrap" id="globeWrap">
+              <canvas id="globeCanvas" aria-hidden="true"></canvas>
+              <div id="countryMarkers" class="country-markers" aria-label="세계 나라 선택"></div>
+              <div class="globe-shine" aria-hidden="true"></div>
+            </div>
+
+            <div class="globe-controls" aria-label="지구본 회전 버튼">
+              <button id="rotateLeft" type="button" aria-label="지구본을 왼쪽으로 돌리기">◀</button>
+              <span>끌어서 돌려요</span>
+              <button id="rotateRight" type="button" aria-label="지구본을 오른쪽으로 돌리기">▶</button>
+            </div>
+          </div>
+
+          <aside class="mission-dock" aria-live="polite">
+            <div class="mascot-area">
+              <img id="mascotImage" src="./assets/compass-mascot.png" alt="손을 흔드는 나침반 탐험대장 콩콩" hidden />
+              <div id="mascotFallback" class="mascot-fallback" aria-hidden="true">🧭</div>
+              <div class="speech-bubble">
+                <strong id="guideTitle">어디로 떠나볼까?</strong>
+                <p id="guideMessage">지구본을 돌린 뒤, 물음표를 눌러 새로운 나라를 만나 보자!</p>
+              </div>
+            </div>
+
+            <div class="next-goal">
+              <div class="goal-topline">
+                <span>다음 목표</span>
+                <strong id="goalText">나라 1개 발견하기</strong>
+              </div>
+              <div class="progress-track" aria-hidden="true"><span id="progressBar"></span></div>
+            </div>
+
+            <div class="continent-key" aria-label="대륙 색깔 안내">
+              <span><i class="dot asia"></i>아시아</span>
+              <span><i class="dot europe"></i>유럽</span>
+              <span><i class="dot africa"></i>아프리카</span>
+              <span><i class="dot america"></i>아메리카</span>
+              <span><i class="dot oceania"></i>오세아니아</span>
+            </div>
+          </aside>
+        </section>
+
+        <section id="collectionView" class="view-panel collection-view" aria-labelledby="collectionTitle" hidden>
+          <div class="collection-heading">
+            <div>
+              <p class="eyebrow">나만의 기록</p>
+              <h1 id="collectionTitle">나의 세계도감</h1>
+              <p>발견한 나라의 카드를 눌러 다시 여행해 보세요.</p>
+            </div>
+            <div class="collection-medal">
+              <span aria-hidden="true">🏅</span>
+              <div><strong id="collectionCount">0개</strong><small>나라 발견</small></div>
+            </div>
+          </div>
+          <div id="collectionGrid" class="collection-grid"></div>
+        </section>
+      </main>
+
+      <div id="countryDialog" class="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="dialogTitle" hidden>
+        <article class="country-dialog">
+          <button id="closeDialog" class="dialog-close" type="button" aria-label="나라 창 닫기">✕</button>
+          <div id="dialogContent"></div>
+        </article>
+      </div>
+
+      <div id="guardianDialog" class="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="guardianTitle" hidden>
+        <article class="guardian-dialog" data-adult-control>
+          <button id="closeGuardian" class="dialog-close" type="button" aria-label="보호자 창 닫기">✕</button>
+          <p class="eyebrow">어른만 들어와요</p>
+          <h2 id="guardianTitle">보호자 메뉴</h2>
+          <p>진행 기록을 처음부터 다시 시작하려면 아래 문제를 풀어 주세요.</p>
+          <label for="guardianAnswer">7 + 6 = ?</label>
+          <input id="guardianAnswer" type="number" inputmode="numeric" autocomplete="off" />
+          <p id="guardianError" class="guardian-error" aria-live="polite"></p>
+          <button id="resetProgress" class="danger-button" type="button">기록 모두 지우기</button>
+        </article>
+      </div>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+      <div id="confetti" class="confetti" aria-hidden="true"></div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
