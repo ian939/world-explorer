@@ -40,10 +40,10 @@
   ];
 
   const regionColors = { 아시아: "#efae42", 유럽: "#7183dc", 아프리카: "#63a95d", 아메리카: "#d96a69", 오세아니아: "#34a6a4", 남극: "#d4e8ea" };
-  const state = { discovered: loadProgress(), activeCountry: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null };
+  const state = { discovered: loadProgress(), activeCountry: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
   const els = {
     globeWrap: document.getElementById("globeWrap"), globeCanvas: document.getElementById("globeCanvas"), globeLoading: document.getElementById("globeLoading"), globeError: document.getElementById("globeError"),
-    progressText: document.getElementById("progressText"), progressBar: document.getElementById("progressBar"), goalText: document.getElementById("goalText"), guideTitle: document.getElementById("guideTitle"), guideMessage: document.getElementById("guideMessage"),
+    progressText: document.getElementById("progressText"), progressTrack: document.getElementById("progressTrack"), progressBar: document.getElementById("progressBar"), goalText: document.getElementById("goalText"), guideTitle: document.getElementById("guideTitle"), guideMessage: document.getElementById("guideMessage"),
     collectionCount: document.getElementById("collectionCount"), collectionGrid: document.getElementById("collectionGrid"), dialog: document.getElementById("countryDialog"), dialogContent: document.getElementById("dialogContent"),
     guardianDialog: document.getElementById("guardianDialog"), guardianAnswer: document.getElementById("guardianAnswer"), guardianError: document.getElementById("guardianError"), soundButton: document.getElementById("soundButton"), toast: document.getElementById("toast"), confetti: document.getElementById("confetti")
   };
@@ -70,7 +70,7 @@
 
   function countryTooltip(country) {
     const found = state.discovered.has(country.id);
-    return `<div class="globe-country-label"><img src="${flagAsset(country)}" alt=""><span><b>${country.name}</b><small>${found ? "도감 열림 · 눌러서 다시 보기" : "아직 회색 나라 · 눌러서 탐험"}</small></span></div>`;
+    return `<div class="globe-country-label"><img src="${flagAsset(country)}" width="64" height="48" alt=""><span><b>${country.name}</b><small>${found ? "도감 열림 · 눌러서 다시 보기" : "아직 회색 나라 · 눌러서 탐험"}</small></span></div>`;
   }
 
   function polygonColor(feature) {
@@ -136,6 +136,11 @@
         .onPointHover(country => { els.globeCanvas.style.cursor = country ? "pointer" : "grab"; });
 
       sizeGlobe();
+      const canvas = els.globeCanvas.querySelector("canvas");
+      if (canvas) {
+        canvas.tabIndex = -1;
+        canvas.setAttribute("aria-hidden", "true");
+      }
       state.globe.pointOfView({ lat: 36.5, lng: 132.5, altitude: 1.34 }, 0);
       const controls = state.globe.controls();
       controls.enableZoom = false;
@@ -188,7 +193,17 @@
     const total = countries.length;
     els.progressText.textContent = `${count} / ${total}`;
     els.collectionCount.textContent = `${count} / ${total}`;
-    els.progressBar.style.width = `${count / total * 100}%`;
+    els.progressBar.style.transform = `scaleX(${count / total})`;
+    els.progressTrack.setAttribute("aria-valuenow", String(count));
+    els.progressTrack.setAttribute("aria-valuetext", `${total}개 나라 중 ${count}개 도감 완성`);
+    document.querySelectorAll("[data-country-shortcut]").forEach(button => {
+      const found = state.discovered.has(button.dataset.countryShortcut);
+      const country = countries.find(item => item.id === button.dataset.countryShortcut);
+      button.classList.toggle("is-found", found);
+      const status = button.querySelector("small");
+      if (status) status.textContent = found ? "도감 열림" : "아직 잠김";
+      if (country) button.setAttribute("aria-label", `${country.name} ${found ? "도감 열림" : "아직 잠김"} 탐험하기`);
+    });
     if (count === total) {
       els.goalText.textContent = "세계도감 완성!";
       els.guideTitle.textContent = "와, 지도를 모두 밝혔어!";
@@ -204,9 +219,9 @@
     els.collectionGrid.innerHTML = countries.map(country => {
       const found = state.discovered.has(country.id);
       if (found) {
-        return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--card-color:${country.color}"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="country-card-inner"><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" alt="" /></span><h3>${country.name}</h3><p>${country.region} · ${country.place}</p></span></button>`;
+        return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--card-color:${country.color}"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="country-card-inner"><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3>${country.name}</h3><p>${country.region} · ${country.place}</p></span></button>`;
       }
-      return `<div class="country-card is-locked" aria-label="아직 열리지 않은 ${country.name} 도감"><div class="country-card-inner"><span class="locked-flag" aria-hidden="true"><img src="${flagAsset(country)}" alt="" /><span class="mystery">?</span></span><h3>${country.name} 도감</h3><p>정보를 읽고 퀴즈 3개를 풀어 보세요.</p></div></div>`;
+      return `<div class="country-card is-locked" aria-label="아직 열리지 않은 ${country.name} 도감"><div class="country-card-inner"><span class="locked-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="640" height="480" alt="" /><span class="mystery">?</span></span><h3>${country.name} 도감</h3><p>정보를 읽고 퀴즈 3개를 풀어 보세요.</p></div></div>`;
     }).join("");
     els.collectionGrid.querySelectorAll("[data-open-country]").forEach(button => button.addEventListener("click", () => openCountry(button.dataset.openCountry)));
   }
@@ -216,11 +231,13 @@
     if (!country) return;
     state.activeCountry = country;
     state.missionIndex = 0;
+    state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     flyTo(country);
     els.guideTitle.textContent = `${country.name}에 도착!`;
     els.guideMessage.textContent = state.discovered.has(id) ? `${country.place} 이야기를 다시 읽거나 퀴즈를 풀어 보자.` : "정보 네 장을 읽고 퀴즈 세 개에 도전해 보자!";
     renderCountryIntro(country);
     els.dialog.hidden = false;
+    setBackgroundInert(true);
     document.body.style.overflow = "hidden";
     window.setTimeout(() => els.dialog.querySelector("button")?.focus(), 40);
     if (state.soundOn) speak(`${country.name}에 도착했어요. ${country.story}`);
@@ -231,7 +248,7 @@
     els.dialogContent.innerHTML = `
       <section style="--country-tint:${country.color};--country-accent:${country.accent}">
         <div class="country-hero">
-          <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" alt="" /></div>
+          <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="640" height="480" alt="" /></div>
           <div><p class="eyebrow">${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.region} · ${country.story}</p></div>
         </div>
         <dl class="country-quickfacts">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
@@ -257,17 +274,19 @@
         </div>
         <div class="mission-badge">${mission.type}</div>
         <h2 id="dialogTitle">${mission.prompt}</h2>
-        <p class="mission-hint" id="missionHint">천천히 보고 골라도 괜찮아요.</p>
-        <div class="option-grid">${mission.options.map((option, optionIndex) => `<button type="button" class="option-button" data-option="${optionIndex}"><span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}</button>`).join("")}</div>
-        <div id="missionFeedback" class="mission-feedback" aria-live="polite"></div>
+        <p class="mission-hint" id="missionHint" role="status" aria-live="polite">천천히 보고 골라도 괜찮아요.</p>
+        <div class="option-grid">${mission.options.map((option, optionIndex) => `<button type="button" class="option-button" data-option="${optionIndex}" aria-pressed="false"><span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}</button>`).join("")}</div>
+        <div id="missionFeedback" class="mission-feedback" role="status" aria-live="polite"></div>
       </section>`;
     els.dialogContent.querySelectorAll("[data-option]").forEach(button => button.addEventListener("click", () => answerMission(country, mission, Number(button.dataset.option), button)));
+    focusDialogTitle();
   }
 
   function answerMission(country, mission, choice, button) {
     if (choice === mission.answer) {
       els.dialogContent.querySelectorAll("[data-option]").forEach(option => { option.disabled = true; });
       button.classList.add("is-correct");
+      button.setAttribute("aria-pressed", "true");
       document.getElementById("missionHint").textContent = "정답이에요. 아래 설명까지 읽어 보세요.";
       const finalQuestion = state.missionIndex === country.missions.length - 1;
       const feedback = document.getElementById("missionFeedback");
@@ -286,6 +305,7 @@
     } else {
       button.classList.add("is-wrong");
       button.disabled = true;
+      button.setAttribute("aria-pressed", "true");
       document.getElementById("missionHint").textContent = `다시 생각해 볼까요? 힌트: ${mission.hint}`;
       if (navigator.vibrate) navigator.vibrate(60);
     }
@@ -302,9 +322,11 @@
 
   function closeCountryDialog() {
     els.dialog.hidden = true;
+    setBackgroundInert(false);
     document.body.style.overflow = "";
     els.guideTitle.textContent = state.discovered.size === countries.length ? "세계지도 완성!" : "다음에는 어디로 갈까?";
     els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 두 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 아직 회색인 나라를 찾아보자!";
+    restoreFocus();
   }
 
   function setView(view) {
@@ -315,6 +337,7 @@
       const active = tab.dataset.view === view;
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
     });
     if (view === "explore") window.setTimeout(() => { sizeGlobe(); if (state.globe) state.globe.resumeAnimation(); }, 30);
     else if (state.globe) state.globe.pauseAnimation();
@@ -362,21 +385,58 @@
     ["copy", "cut", "paste"].forEach(type => document.addEventListener(type, event => { if (!isAdultControl(event.target)) event.preventDefault(); }));
   }
 
-  function closeGuardian() { els.guardianDialog.hidden = true; document.body.style.overflow = ""; }
+  function setBackgroundInert(inert) {
+    document.querySelectorAll(".topbar, main, .bottom-nav").forEach(element => { element.inert = inert; });
+  }
+
+  function restoreFocus() {
+    const target = state.returnFocus;
+    state.returnFocus = null;
+    if (target && target.isConnected) window.setTimeout(() => target.focus(), 0);
+  }
+
+  function focusDialogTitle() {
+    window.setTimeout(() => {
+      const title = els.dialogContent.querySelector("#dialogTitle");
+      if (!title) return;
+      title.tabIndex = -1;
+      title.focus();
+    }, 0);
+  }
+
+  function trapFocus(container, event) {
+    if (event.key !== "Tab") return;
+    const focusable = [...container.querySelectorAll('button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])')].filter(element => !element.hidden);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function closeGuardian() {
+    els.guardianDialog.hidden = true;
+    setBackgroundInert(false);
+    document.body.style.overflow = "";
+    restoreFocus();
+  }
 
   function bindEvents() {
     document.getElementById("rotateLeft").addEventListener("click", () => rotateBy(-35));
     document.getElementById("rotateRight").addEventListener("click", () => rotateBy(35));
+    document.querySelectorAll("[data-country-shortcut]").forEach(button => button.addEventListener("click", () => openCountry(button.dataset.countryShortcut)));
     document.getElementById("retryGlobe").addEventListener("click", initGlobe);
     document.querySelectorAll(".view-tab").forEach(tab => tab.addEventListener("click", () => setView(tab.dataset.view)));
     document.getElementById("closeDialog").addEventListener("click", closeCountryDialog);
     els.dialog.addEventListener("click", event => { if (event.target === els.dialog) closeCountryDialog(); });
     document.getElementById("guardianButton").addEventListener("click", () => {
+      state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       els.guardianAnswer.value = "";
       els.guardianError.textContent = "";
       els.guardianDialog.hidden = false;
+      setBackgroundInert(true);
       document.body.style.overflow = "hidden";
-      window.setTimeout(() => els.guardianAnswer.focus(), 40);
+      window.setTimeout(() => document.getElementById("closeGuardian").focus(), 40);
     });
     document.getElementById("closeGuardian").addEventListener("click", closeGuardian);
     els.guardianDialog.addEventListener("click", event => { if (event.target === els.guardianDialog) closeGuardian(); });
@@ -404,10 +464,20 @@
       else if (state.view === "explore") state.globe.resumeAnimation();
     });
     document.addEventListener("keydown", event => {
-      if (event.key !== "Escape") return;
-      if (!els.guardianDialog.hidden) closeGuardian();
-      else if (!els.dialog.hidden) closeCountryDialog();
+      const activeDialog = !els.guardianDialog.hidden ? els.guardianDialog : !els.dialog.hidden ? els.dialog : null;
+      if (activeDialog) trapFocus(activeDialog, event);
+      if (event.key === "Escape") {
+        if (!els.guardianDialog.hidden) closeGuardian();
+        else if (!els.dialog.hidden) closeCountryDialog();
+      }
     });
+    document.querySelectorAll(".view-tab").forEach(tab => tab.addEventListener("keydown", event => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      const targetView = tab.dataset.view === "explore" ? "collection" : "explore";
+      setView(targetView);
+      document.querySelector(`.view-tab[data-view="${targetView}"]`).focus();
+    }));
   }
 
   function setupMascot() {
