@@ -6,7 +6,7 @@
   const countries = Array.isArray(window.WORLD_EXPLORER_COUNTRIES) ? window.WORLD_EXPLORER_COUNTRIES : [];
 
   const regionColors = { 아시아: "#efae42", 유럽: "#7183dc", 아프리카: "#63a95d", 아메리카: "#d96a69", 오세아니아: "#34a6a4", 남극: "#d4e8ea" };
-  const state = { discovered: loadProgress(), activeCountry: null, pointed: null, missionIndex: 0, soundOn: loadSound(), view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
+  const state = { discovered: loadProgress(), activeCountry: null, pointed: null, focusContinent: null, missionIndex: 0, soundOn: loadSound(), view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
   const els = {
     globeWrap: document.getElementById("globeWrap"), globeCanvas: document.getElementById("globeCanvas"), globeLoading: document.getElementById("globeLoading"), globeError: document.getElementById("globeError"),
     progressText: document.getElementById("progressText"), progressTrack: document.getElementById("progressTrack"), progressBar: document.getElementById("progressBar"), goalText: document.getElementById("goalText"), guideTitle: document.getElementById("guideTitle"), guideMessage: document.getElementById("guideMessage"),
@@ -49,6 +49,11 @@
   function artImg(country, size = "thumb") {
     return `<img src="${artAsset(country, size)}" width="480" height="640" alt="" loading="lazy" onerror="this.parentElement.classList.add('no-art');this.remove()" />`;
   }
+  // 받침이 있으면 true (ㄹ 받침은 따로 알려 준다: "으로/로" 고를 때)
+  function batchim(word) {
+    const code = word.charCodeAt(word.length - 1) - 0xac00;
+    return code >= 0 && code < 11172 ? code % 28 : 0;
+  }
   // 받침 있는 이름 뒤에는 "이에요", 없으면 "예요"
   function ieyo(word) {
     const code = word.charCodeAt(word.length - 1) - 0xac00;
@@ -73,15 +78,33 @@
   // 국기 목록에서 고른 나라: 지구본 위에서 노랗게 빛나며 아이가 직접 눌러 주기를 기다린다
   const POINTED_COLOR = "#ffd23f";
   function isPointed(target) { return Boolean(target) && state.pointed === target.id; }
+  // 대륙 버튼으로 고른 대륙: 땅이 살짝 솟고 노란 테두리
+  const CONTINENT_NAMES = { Asia: "아시아", Europe: "유럽", Africa: "아프리카", "North America": "아메리카", "South America": "아메리카", Oceania: "오세아니아", Antarctica: "남극" };
+  const CONTINENT_VIEWS = {
+    // label: 대륙 이름표는 땅을 가리지 않게 옆 바다 위에
+    아시아: { lat: 32, lng: 95, altitude: 1.9, label: [8, 72] },
+    유럽: { lat: 52, lng: 18, altitude: 1.62, label: [45, -14] },
+    아프리카: { lat: 2, lng: 20, altitude: 1.75, label: [-8, -2] },
+    아메리카: { lat: 12, lng: -82, altitude: 2.3, label: [6, -122] },
+    오세아니아: { lat: -20, lng: 150, altitude: 1.62, label: [2, 162] }
+  };
+  function featureContinent(feature) {
+    const target = targetForFeature(feature);
+    if (target) return continentOf(target);
+    return CONTINENT_NAMES[feature.properties && feature.properties.CONTINENT] || "";
+  }
+  function inFocusContinent(feature) { return Boolean(state.focusContinent) && featureContinent(feature) === state.focusContinent; }
   function polygonStroke(feature) {
     const target = targetForFeature(feature);
     if (isPointed(target)) return "#ffffff";
+    if (inFocusContinent(feature)) return "#ffd23f";
     return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
   }
   function polygonAlt(feature) {
     const target = targetForFeature(feature);
     if (isPointed(target)) return 0.06;
-    return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
+    const base = target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
+    return inFocusContinent(feature) ? base + 0.045 : base;
   }
   function pointerElement(country) {
     const element = document.createElement("div");
@@ -96,7 +119,18 @@
     const markers = countries.filter(country => state.discovered.has(country.id) && country.id !== state.pointed).map(country => ({ country, kind: "flag" }));
     const pointed = countries.find(country => country.id === state.pointed);
     if (pointed) markers.push({ country: pointed, kind: "pointer" });
+    const view = CONTINENT_VIEWS[state.focusContinent];
+    if (view) markers.push({ country: { lat: view.label[0], lon: view.label[1] }, kind: "continent", name: state.focusContinent });
     return markers;
+  }
+  function continentLabelElement(name) {
+    const element = document.createElement("div");
+    element.className = "globe-continent";
+    element.setAttribute("aria-hidden", "true");
+    element.style.setProperty("--continent", regionColors[name]);
+    const total = countries.filter(country => continentOf(country) === name).length;
+    element.innerHTML = `<span class="globe-continent-inner"><b>${name}</b><small>탐험할 나라 ${total}개</small></span>`;
+    return element;
   }
   // 도감이 열린 나라: 지도 위에 네모 국기 + 한글 이름표 (누르면 그 나라 다시 보기)
   function flagLabelElement(country) {
@@ -127,7 +161,10 @@
   }
   function scheduleFlagEdges() { if (!edgeFrame) edgeFrame = window.requestAnimationFrame(updateFlagEdges); }
 
-  function markerElement(marker) { return marker.kind === "pointer" ? pointerElement(marker.country) : flagLabelElement(marker.country); }
+  function markerElement(marker) {
+    if (marker.kind === "continent") return continentLabelElement(marker.name);
+    return marker.kind === "pointer" ? pointerElement(marker.country) : flagLabelElement(marker.country);
+  }
 
   function polygonColor(feature) {
     const target = targetForFeature(feature);
@@ -325,7 +362,7 @@
         .showGraticules(false)
         .polygonsData(state.geojson.features)
         .polygonCapColor(polygonColor)
-        .polygonSideColor(() => "rgba(35,69,55,.55)")
+        .polygonSideColor(feature => inFocusContinent(feature) ? "rgba(255,210,63,.95)" : "rgba(35,69,55,.55)")
         .polygonStrokeColor(polygonStroke)
         .polygonAltitude(polygonAlt)
         .polygonsTransitionDuration(300)
@@ -340,7 +377,7 @@
         .htmlElementsData(globeMarkers())
         .htmlLat(marker => marker.country.lat)
         .htmlLng(marker => marker.country.lon)
-        .htmlAltitude(marker => marker.kind === "pointer" ? 0.07 : 0.03)
+        .htmlAltitude(marker => marker.kind === "pointer" ? 0.07 : marker.kind === "continent" ? 0.09 : 0.03)
         .htmlElement(markerElement)
         .htmlElementVisibilityModifier((element, visible) => {
           element.style.opacity = visible ? "" : "0";
@@ -429,6 +466,8 @@
     if (!state.globe) { openCountry(id); return; }
     window.clearTimeout(pointTimer);
     state.pointed = id;
+    state.focusContinent = null;
+    document.querySelectorAll("[data-jump].is-active").forEach(button => { button.classList.remove("is-active"); button.setAttribute("aria-pressed", "false"); });
     refreshGlobe();
     flyTo(country, 1300);
     document.querySelectorAll("[data-country-shortcut]").forEach(button => button.classList.toggle("is-pointed", button.dataset.countryShortcut === id));
@@ -439,6 +478,33 @@
     if (state.soundOn) speak(`${country.name}, 여기 있어요. 반짝이는 곳을 눌러 보세요.`);
     // 키보드로는 지구본을 누를 수 없으므로 돌아간 뒤 창을 열어 준다
     if (byKeyboard) pointTimer = window.setTimeout(() => openCountry(id, { skipFly: true }), reduceMotion.matches ? 0 : 1400);
+  }
+
+  // 대륙 버튼: 국기 목록을 그 대륙으로 넘기고, 지구본도 그 대륙으로 돌려 땅을 표시한다
+  function focusContinent(name) {
+    const view = CONTINENT_VIEWS[name];
+    clearPointed();
+    state.focusContinent = name;
+    document.querySelectorAll("[data-jump]").forEach(button => {
+      const active = button.dataset.jump === name;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    if (!state.globe || !view) return;
+    refreshGlobe();
+    state.globe.pointOfView({ lat: view.lat, lng: view.lng, altitude: view.altitude }, reduceMotion.matches ? 0 : 1300);
+    const total = countries.filter(country => continentOf(country) === name).length;
+    els.guideTitle.textContent = `${name}에 왔어!`;
+    els.guideMessage.textContent = `노란 테두리 안이 ${name}${batchim(name) ? "이야" : "야"}. 나라 ${total}개를 찾아봐!`;
+    const rect = els.globeWrap.getBoundingClientRect();
+    if (rect.top < 0 || rect.bottom > window.innerHeight) els.globeWrap.scrollIntoView({ block: "center", behavior: reduceMotion.matches ? "auto" : "smooth" });
+    if (state.soundOn) speak(`${name}${batchim(name) && batchim(name) !== 8 ? "으로" : "로"} 가 볼까요?`);
+  }
+  function clearContinent() {
+    if (!state.focusContinent) return;
+    state.focusContinent = null;
+    document.querySelectorAll("[data-jump].is-active").forEach(button => { button.classList.remove("is-active"); button.setAttribute("aria-pressed", "false"); });
+    refreshGlobe();
   }
 
   function clearPointed() {
@@ -494,12 +560,13 @@
           </button>`).join("")}</div>
       </section>`).join("");
     const jump = document.getElementById("continentJump");
-    jump.innerHTML = groups.map(group => `<button type="button" data-jump="${group.name}" style="--continent:${group.color}">${group.name}</button>`).join("");
+    jump.innerHTML = groups.map(group => `<button type="button" data-jump="${group.name}" aria-pressed="false" style="--continent:${group.color}">${group.name}</button>`).join("");
     jump.querySelectorAll("[data-jump]").forEach(button => button.addEventListener("click", () => {
       const target = document.getElementById(`shortcut-${button.dataset.jump}`);
       if (!target) return;
       const vertical = rail.scrollHeight > rail.clientHeight + 4;
       rail.scrollTo(vertical ? { top: target.offsetTop - rail.offsetTop, behavior: "smooth" } : { left: target.offsetLeft - rail.offsetLeft, behavior: "smooth" });
+      focusContinent(button.dataset.jump);
     }));
   }
 
@@ -522,6 +589,7 @@
     const country = countries.find(item => item.id === id);
     if (!country) return;
     clearPointed();
+    clearContinent();
     state.activeCountry = country;
     state.missionIndex = 0;
     state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;

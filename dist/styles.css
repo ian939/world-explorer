@@ -361,6 +361,25 @@ button:active { transform: translateY(2px) scale(.98); }
 .globe-flag::before { content: ""; position: absolute; inset: -8px -4px; }
 .globe-flag img { display: block; width: 28px; height: 21px; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
 .globe-flag b { font: 13px/1 var(--font-ui); font-weight: 400; }
+/* 대륙 버튼으로 고른 대륙의 큰 이름표 (눌림은 아래 지구본으로 통과) */
+/* 지구본 라이브러리가 바깥 상자의 transform 으로 자리를 잡으므로, 모양·움직임은 안쪽 상자에만 */
+.globe-continent { pointer-events: none !important; }
+.globe-continent-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 20px 9px;
+  border: 3px solid #ffd23f;
+  border-radius: 18px;
+  color: var(--ink);
+  background: rgba(255,253,247,.92);
+  box-shadow: 0 6px 18px rgba(10,30,60,.3);
+  white-space: nowrap;
+  animation: continent-pop .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.globe-continent b { font: 30px/1 var(--font-display); font-weight: 400; }
+.globe-continent small { color: var(--ink-soft); font: 14px/1 var(--font-ui); }
+@keyframes continent-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+.continent-jump button.is-active { background: var(--continent); color: #fff; box-shadow: 0 0 0 3px #ffd23f; }
+.continent-jump button.is-active::before { background: #fff; }
 .globe-flag.is-edge { opacity: 0 !important; pointer-events: none !important; }
 
 /* 오른쪽 아래: 안내하는 콩이 */
