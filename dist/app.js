@@ -84,25 +84,43 @@
     return element;
   }
 
-  // 도감이 열린 나라는 지구본의 그 나라 자리에 그림 배지를 붙인다
+  // 도감이 열린 나라는 지구본의 그 나라 자리에 국기 이름표를 붙인다
   function globeMarkers() {
-    const markers = countries.filter(country => state.discovered.has(country.id) && country.id !== state.pointed).map(country => ({ country, kind: "art" }));
+    const markers = countries.filter(country => state.discovered.has(country.id) && country.id !== state.pointed).map(country => ({ country, kind: "flag" }));
     const pointed = countries.find(country => country.id === state.pointed);
     if (pointed) markers.push({ country: pointed, kind: "pointer" });
     return markers;
   }
-  function artBadgeElement(country) {
-    const badge = document.createElement("button");
-    badge.type = "button";
-    badge.tabIndex = -1;
-    badge.className = "globe-art";
-    badge.style.setProperty("--continent", regionColors[continentOf(country)]);
-    badge.setAttribute("aria-label", `${country.name} 그림 다시 보기`);
-    badge.innerHTML = `<span class="globe-art-frame">${artImg(country)}<i class="art-fallback" aria-hidden="true">${country.icon}</i></span>`;
-    badge.addEventListener("click", event => { event.stopPropagation(); openCountry(country.id, { skipFly: true }); });
-    return badge;
+  // 도감이 열린 나라: 지도 위에 네모 국기 + 한글 이름표 (누르면 그 나라 다시 보기)
+  function flagLabelElement(country) {
+    const label = document.createElement("button");
+    label.type = "button";
+    label.tabIndex = -1;
+    label.className = "globe-flag";
+    label.dataset.lat = country.lat;
+    label.dataset.lon = country.lon;
+    label.setAttribute("aria-label", `${country.name} 다시 보기`);
+    label.innerHTML = `<img src="${flagAsset(country)}" width="28" height="21" alt="" /><b>${country.name}</b>`;
+    label.addEventListener("click", event => { event.stopPropagation(); openCountry(country.id, { skipFly: true }); });
+    return label;
   }
-  function markerElement(marker) { return marker.kind === "pointer" ? pointerElement(marker.country) : artBadgeElement(marker.country); }
+  // 지구본 가장자리에 비스듬히 몰린 이름표는 겹쳐 보이므로, 화면 가운데에서 70° 넘게 떨어진 나라는 숨긴다
+  let edgeFrame = 0;
+  function updateFlagEdges() {
+    edgeFrame = 0;
+    if (!state.globe) return;
+    const view = state.globe.pointOfView();
+    const rad = Math.PI / 180;
+    const cosLimit = Math.cos(70 * rad);
+    els.globeCanvas.querySelectorAll(".globe-flag").forEach(label => {
+      const lat = Number(label.dataset.lat) * rad, lon = Number(label.dataset.lon) * rad;
+      const cos = Math.sin(view.lat * rad) * Math.sin(lat) + Math.cos(view.lat * rad) * Math.cos(lat) * Math.cos(lon - view.lng * rad);
+      label.classList.toggle("is-edge", cos < cosLimit);
+    });
+  }
+  function scheduleFlagEdges() { if (!edgeFrame) edgeFrame = window.requestAnimationFrame(updateFlagEdges); }
+
+  function markerElement(marker) { return marker.kind === "pointer" ? pointerElement(marker.country) : flagLabelElement(marker.country); }
 
   function polygonColor(feature) {
     const target = targetForFeature(feature);
@@ -132,16 +150,17 @@
     return geojsonPromise;
   }
 
-  // 평면 세계지도: 북위 84° ~ 남위 58°를 1000 폭에 펼친다 (남극은 뺌)
-  const MAP_W = 1000, MAP_TOP = 84, MAP_BOTTOM = -58;
-  const MAP_H = Math.round((MAP_TOP - MAP_BOTTOM) / 360 * MAP_W);
+  // 평면 세계지도: 아이들이 늘 보는 지도(구글 지도)와 같은 메르카토르 방식, 북위 76° ~ 남위 57° (남극은 뺌)
+  const MAP_W = 1000, MAP_TOP = 76, MAP_BOTTOM = -57;
+  const mercator = lat => Math.log(Math.tan(Math.PI / 4 + Math.max(-85, Math.min(85, lat)) * Math.PI / 360));
+  const MAP_H = Math.round((mercator(MAP_TOP) - mercator(MAP_BOTTOM)) / (2 * Math.PI) * MAP_W);
   const mapX = lon => ((lon + 180) / 360 * MAP_W).toFixed(1);
-  const mapY = lat => ((MAP_TOP - lat) / 360 * MAP_W).toFixed(1);
+  const mapY = lat => ((mercator(MAP_TOP) - mercator(lat)) / (2 * Math.PI) * MAP_W).toFixed(1);
   let worldMap = null;
   function ringPath(ring) {
     let d = "", last = "";
     ring.forEach(([lon, lat], index) => {
-      const point = `${mapX(lon)} ${mapY(Math.max(MAP_BOTTOM - 2, lat))}`;
+      const point = `${mapX(lon)} ${mapY(lat)}`;
       if (point === last) return;
       d += (index ? "L" : "M") + point;
       last = point;
@@ -227,11 +246,11 @@
         .htmlElementsData(globeMarkers())
         .htmlLat(marker => marker.country.lat)
         .htmlLng(marker => marker.country.lon)
-        .htmlAltitude(marker => marker.kind === "pointer" ? 0.07 : 0.035)
+        .htmlAltitude(marker => marker.kind === "pointer" ? 0.07 : 0.03)
         .htmlElement(markerElement)
         .htmlElementVisibilityModifier((element, visible) => {
           element.style.opacity = visible ? "" : "0";
-          element.style.pointerEvents = visible && element.classList.contains("globe-art") ? "auto" : "none";
+          element.style.pointerEvents = visible && element.classList.contains("globe-flag") ? "auto" : "none";
         })
         .polygonLabel(feature => {
           const target = targetForFeature(feature);
@@ -266,6 +285,10 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.autoRotate = false;
+      controls.addEventListener("change", scheduleFlagEdges);
+      // 버튼·국기로 돌릴 때(카메라 이동)도 놓치지 않게 가끔 다시 잰다
+      window.setInterval(() => { if (state.view === "explore" && !document.hidden) scheduleFlagEdges(); }, 400);
+      scheduleFlagEdges();
       if (state.globe.renderer) state.globe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
       state.resizeObserver = new ResizeObserver(sizeGlobe);
       state.resizeObserver.observe(els.globeWrap);
@@ -290,6 +313,7 @@
     state.globe.pointsData([...countries]);
     const pointed = countries.filter(country => country.id === state.pointed);
     state.globe.ringsData(pointed).htmlElementsData(globeMarkers());
+    window.setTimeout(scheduleFlagEdges, 50);
   }
 
   function rotateBy(degrees) {
@@ -391,13 +415,13 @@
       const cards = group.list.map((country, index) => {
         const tilt = [-4, 3, -2, 5, -3, 2][index % 6];
         if (state.discovered.has(country.id)) {
-          return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--tilt:${tilt}deg" aria-label="${country.name} ${landmarkName(country)} 그림, 다시 보기"><span class="memory"><span class="memory-art" data-art>${artImg(country)}<span class="art-fallback" aria-hidden="true">${country.icon}</span></span><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3 class="${nameClass(country)}">${country.name}</h3></span></button>`;
+          return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--tilt:${tilt}deg" aria-label="${country.name} ${landmarkName(country)} 그림 크게 보기"><span class="memory"><span class="memory-art" data-art>${artImg(country)}<span class="art-fallback" aria-hidden="true">${country.icon}</span><span class="zoom-chip" aria-hidden="true">🔍</span></span><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3 class="${nameClass(country)}">${country.name}</h3></span></button>`;
         }
         return `<div class="country-card is-locked" aria-label="아직 그림이 없는 ${country.name}"><span class="stamp-slot"><span class="locked-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3 class="${nameClass(country)}">${country.name}</h3></span></div>`;
       }).join("");
       return `<section class="passport-page" style="--continent:${group.color}" aria-labelledby="page-${group.name}"><header><h2 id="page-${group.name}">${group.name}</h2><span>${foundCount} / ${group.list.length}</span></header><div class="stamp-grid">${cards}</div></section>`;
     }).join("");
-    els.collectionGrid.querySelectorAll("[data-open-country]").forEach(button => button.addEventListener("click", () => openCountry(button.dataset.openCountry)));
+    els.collectionGrid.querySelectorAll("[data-open-country]").forEach(button => button.addEventListener("click", () => openArt(button.dataset.openCountry)));
   }
 
   function openCountry(id, options = {}) {
@@ -425,10 +449,10 @@
         <div class="country-hero">
           <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="640" height="480" alt="" /></div>
           <div class="hero-text"><p class="eyebrow">${country.region} · ${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.story}</p></div>
-          ${found ? `<figure class="hero-art" data-art aria-label="${landmarkName(country)}에서 찍은 그림">${artImg(country)}<span class="art-fallback" aria-hidden="true">${country.icon}</span></figure>` : ""}
+          ${found ? `<button type="button" class="hero-art" data-art data-view-art="${country.id}" aria-label="${landmarkName(country)}에서 찍은 그림 크게 보기">${artImg(country)}<span class="art-fallback" aria-hidden="true">${country.icon}</span><span class="zoom-chip" aria-hidden="true">🔍</span></button>` : ""}
         </div>
         <figure class="where-map" style="--here:${country.accent}">
-          <div id="whereMap" class="where-map-canvas" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
+          <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
           <figcaption><span aria-hidden="true">📍</span> 세계지도에서 반짝이는 곳이 ${country.name}${ieyo(country.name)}</figcaption>
         </figure>
         <dl class="country-quickfacts">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
@@ -440,6 +464,7 @@
         </div>
       </section>`;
     renderWhereMap(country);
+    bindArtButtons();
     document.getElementById("speakCountry").addEventListener("click", () => speak(`${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}`));
     document.getElementById("startMission").addEventListener("click", () => renderMission(country, 0));
   }
@@ -498,11 +523,71 @@
   }
 
   function showSuccess(country) {
-    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><figure class="success-art" data-art>${artImg(country, "full")}<span class="art-fallback" aria-hidden="true">${country.icon}</span><span class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b class="${nameClass(country)}">${country.name}</b></span></figure><p class="eyebrow">3문제를 모두 맞혔어요 · ${landmarkName(country)}</p><h2 id="dialogTitle">${country.name} 그림이 도감에 쏙!</h2><p>지구본의 ${country.name} 자리에도 이 그림이 붙었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
+    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><figure class="success-art" data-art>${artImg(country, "full")}<span class="art-fallback" aria-hidden="true">${country.icon}</span><button type="button" class="success-zoom" data-view-art="${country.id}" aria-label="그림 크게 보기">🔍 크게 보기</button><span class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b class="${nameClass(country)}">${country.name}</b></span></figure><p class="eyebrow">3문제를 모두 맞혔어요 · ${landmarkName(country)}</p><h2 id="dialogTitle">${country.name} 그림이 도감에 쏙!</h2><p>지구본의 ${country.name} 자리에도 이 그림이 붙었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
+    bindArtButtons();
     document.getElementById("continueExplore").addEventListener("click", () => {
       const complete = state.discovered.size === countries.length;
       closeCountryDialog();
       if (complete) setView("collection");
+    });
+  }
+
+  // ── 손으로 그린 그림 크게 보기 (그림을 누르면 누른 곳이 두 배로 확대) ──
+  const artViewer = {
+    root: document.getElementById("artViewer"), img: document.getElementById("artViewerImg"), frame: document.getElementById("artViewerFrame"),
+    title: document.getElementById("artViewerTitle"), place: document.getElementById("artViewerPlace"), flag: document.getElementById("artViewerFlag"),
+    story: document.getElementById("artViewerStory"), countryId: null, returnFocus: null, fromDialog: false
+  };
+  function bindArtButtons() {
+    els.dialogContent.querySelectorAll("[data-view-art]").forEach(button => button.addEventListener("click", () => openArt(button.dataset.viewArt)));
+  }
+  function openArt(id) {
+    const country = countries.find(item => item.id === id);
+    if (!country) return;
+    artViewer.countryId = id;
+    artViewer.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    artViewer.fromDialog = !els.dialog.hidden;
+    artViewer.frame.classList.remove("is-zoomed", "no-art");
+    artViewer.img.hidden = false;
+    artViewer.img.src = artAsset(country, "full");
+    artViewer.img.alt = `${landmarkName(country)} 앞에서 찍은 그림`;
+    artViewer.frame.querySelector(".art-fallback").textContent = country.icon;
+    artViewer.flag.src = flagAsset(country);
+    artViewer.title.textContent = country.name;
+    artViewer.place.textContent = landmarkName(country);
+    artViewer.story.hidden = artViewer.fromDialog;
+    artViewer.root.hidden = false;
+    setBackgroundInert(true);
+    els.dialog.inert = true;
+    document.body.style.overflow = "hidden";
+    window.setTimeout(() => document.getElementById("artViewerClose").focus(), 40);
+  }
+  function closeArt() {
+    if (artViewer.root.hidden) return;
+    artViewer.root.hidden = true;
+    els.dialog.inert = false;
+    if (!artViewer.fromDialog) { setBackgroundInert(false); document.body.style.overflow = ""; }
+    const target = artViewer.returnFocus;
+    if (target && target.isConnected) window.setTimeout(() => target.focus(), 0);
+  }
+  function setupArtViewer() {
+    artViewer.img.addEventListener("error", () => { artViewer.frame.classList.add("no-art"); artViewer.img.hidden = true; });
+    artViewer.frame.addEventListener("click", event => {
+      if (artViewer.frame.classList.contains("no-art")) return;
+      const zoomed = artViewer.frame.classList.toggle("is-zoomed");
+      if (zoomed) {
+        const rect = artViewer.img.getBoundingClientRect();
+        artViewer.img.style.transformOrigin = `${((event.clientX - rect.left) / rect.width * 100).toFixed(0)}% ${((event.clientY - rect.top) / rect.height * 100).toFixed(0)}%`;
+      }
+    });
+    document.getElementById("artViewerClose").addEventListener("click", closeArt);
+    document.getElementById("artViewerX").addEventListener("click", closeArt);
+    artViewer.root.addEventListener("click", event => { if (event.target === artViewer.root) closeArt(); });
+    artViewer.story.addEventListener("click", () => {
+      const id = artViewer.countryId;
+      artViewer.returnFocus = null;
+      closeArt();
+      openCountry(id, { skipFly: true });
     });
   }
 
@@ -650,10 +735,11 @@
       else if (state.view === "explore") state.globe.resumeAnimation();
     });
     document.addEventListener("keydown", event => {
-      const activeDialog = !els.guardianDialog.hidden ? els.guardianDialog : !els.dialog.hidden ? els.dialog : null;
+      const activeDialog = !artViewer.root.hidden ? artViewer.root : !els.guardianDialog.hidden ? els.guardianDialog : !els.dialog.hidden ? els.dialog : null;
       if (activeDialog) trapFocus(activeDialog, event);
       if (event.key === "Escape") {
-        if (!els.guardianDialog.hidden) closeGuardian();
+        if (!artViewer.root.hidden) closeArt();
+        else if (!els.guardianDialog.hidden) closeGuardian();
         else if (!els.dialog.hidden) closeCountryDialog();
       }
     });
@@ -702,6 +788,7 @@
 
   setupKidSafeGuards();
   setupUpdateCheck();
+  setupArtViewer();
   renderCountryShortcuts();
   bindEvents();
   setupMascot();

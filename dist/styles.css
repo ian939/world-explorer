@@ -342,20 +342,26 @@ button:active { transform: translateY(2px) scale(.98); }
 @keyframes pointer-bob { to { transform: translateY(calc(-50% - 8px)); } }
 .country-shortcuts button[data-country-shortcut].is-pointed { border-color: var(--sun); background: color-mix(in srgb, var(--sun) 22%, #fff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sun) 45%, transparent); }
 
-/* 도감이 열린 나라: 지구본의 그 나라 자리에 붙는 그림 배지 (누르면 다시 보기) */
-.globe-art {
-  width: 46px; height: 46px; min-width: 46px; min-height: 46px;
-  padding: 0;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--continent) 30%, #fff);
-  box-shadow: 0 0 0 2px var(--continent), 0 6px 12px rgba(10,30,60,.3);
+/* 도감이 열린 나라: 지도 위 네모 국기 + 한글 이름표 (누르면 다시 보기) */
+.globe-flag {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 5px;
+  min-width: 0; min-height: 0;
+  padding: 3px 8px 3px 3px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: rgba(255,253,247,.94);
+  box-shadow: 0 2px 6px rgba(10,30,60,.3);
+  white-space: nowrap;
   cursor: pointer;
   transition: opacity .2s ease;
 }
-.globe-art-frame { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; border-radius: 50%; }
-.globe-art-frame img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
-.globe-art .art-fallback { font-size: 22px; }
+/* 눈에 보이는 크기는 작게, 손가락이 닿는 자리는 44px 가깝게 넓힌다 */
+.globe-flag::before { content: ""; position: absolute; inset: -8px -4px; }
+.globe-flag img { display: block; width: 28px; height: 21px; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.globe-flag b { font: 13px/1 var(--font-ui); font-weight: 400; }
+.globe-flag.is-edge { opacity: 0 !important; pointer-events: none !important; }
 
 /* 오른쪽 아래: 안내하는 콩이 */
 .guide-dock {
@@ -479,6 +485,73 @@ button:active { transform: translateY(2px) scale(.98); }
 .memory .card-flag img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 4px; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
 button.country-card:hover .memory, button.country-card:focus-visible .memory { transform: rotate(0deg) scale(1.04); }
 
+/* 그림을 크게 볼 수 있다는 표시 — 그림을 덮지 않게 오른쪽 아래 모서리에 */
+.zoom-chip {
+  position: absolute; right: 6%; bottom: 5%;
+  display: grid; place-items: center;
+  width: 24%; aspect-ratio: 1;
+  max-width: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 2px 6px rgba(21,50,92,.25);
+  font-size: clamp(11px, 1.6vw, 16px);
+}
+.success-zoom {
+  position: absolute; right: 16px; bottom: 16px;
+  min-height: 44px; padding: 0 14px;
+  border: 0; border-radius: 999px;
+  color: var(--ink); background: rgba(255,255,255,.94);
+  box-shadow: 0 3px 10px rgba(21,50,92,.25);
+  font: 16px/1 var(--font-ui);
+}
+
+/* ── 손으로 그린 그림 크게 보기 ── */
+.art-viewer {
+  position: fixed; z-index: 120; inset: 0;
+  display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(16,36,66,.72);
+  backdrop-filter: blur(6px);
+}
+.art-viewer-box {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  max-width: 94vw;
+  padding: 18px 18px 20px;
+  border-radius: 28px;
+  background: var(--paper);
+  box-shadow: 0 24px 70px rgba(8,19,31,.45);
+}
+.art-viewer-head { display: flex; align-items: center; gap: 10px; align-self: stretch; padding-right: 60px; min-height: 52px; }
+.art-viewer-head img { width: 40px; height: 30px; border-radius: 4px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.art-viewer-head h2 { margin: 0; font: 26px/1.1 var(--font-display); white-space: nowrap; }
+.art-viewer-head span { color: var(--ink-soft); font: 17px/1.2 var(--font-ui); }
+.art-viewer-frame {
+  position: relative;
+  height: min(calc(100dvh - 250px), 820px);
+  aspect-ratio: 3 / 4;
+  max-width: calc(94vw - 36px);
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 8px #fff, 0 8px 20px rgba(21,50,92,.2);
+  cursor: zoom-in;
+}
+.art-viewer-frame img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform .25s ease; }
+.art-viewer-frame.is-zoomed { cursor: zoom-out; }
+.art-viewer-frame.is-zoomed img { transform: scale(2.2); }
+.art-viewer-frame.no-art { cursor: default; }
+.art-viewer-frame.no-art > .art-fallback { font-size: 120px; }
+.art-viewer-tip { margin: 0; color: var(--ink-soft); font-size: 14px; font-weight: 700; }
+.art-viewer-actions { display: flex; gap: 10px; }
+@media (max-width: 640px) {
+  .art-viewer { padding-inline: 8px; }
+  .art-viewer-box { padding: 14px 12px 16px; }
+  .art-viewer-frame { height: auto; width: calc(100vw - 48px); max-height: calc(100dvh - 260px); }
+  .art-viewer-head h2 { font-size: 22px; }
+  .art-viewer-actions { flex-direction: column; align-self: stretch; }
+}
+
 /* 그림 파일이 아직 없을 때 대신 보여 주는 대표 아이콘 */
 .art-fallback { position: absolute; inset: 0; display: none; place-items: center; font-size: 56px; font-style: normal; }
 .no-art > .art-fallback { display: grid; }
@@ -537,6 +610,7 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 .hero-art {
   position: relative;
   width: 112px; margin: 0;
+  border: 0; cursor: zoom-in;
   padding: 6px;
   border-radius: 10px;
   background: #fff;
@@ -549,7 +623,6 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 
 .where-map { margin: 16px 0 0; }
 .where-map-canvas {
-  aspect-ratio: 1000 / 394;
   overflow: hidden;
   border-radius: 20px;
   background: #d6eef7;
