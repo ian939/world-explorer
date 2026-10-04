@@ -632,10 +632,11 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 .where-map-canvas svg { display: block; width: 100%; height: 100%; }
 .map-sea { fill: #d6eef7; }
 .map-land { fill: #c3cad0; stroke: #fff; stroke-width: .5; }
-.map-opened { opacity: .75; stroke: #fff; stroke-width: .5; }
-.map-here { fill: var(--here); stroke: #fff; stroke-width: 1.4; }
-.map-here-ring { fill: none; stroke: var(--here); stroke-width: 5; transform-box: fill-box; transform-origin: center; animation: map-pulse 1.4s ease-out infinite; }
-.map-here-dot { fill: #fff; stroke: var(--here); stroke-width: 4; }
+.map-here { fill: var(--here); stroke: var(--ink); stroke-linejoin: round; }
+/* 손으로 동그라미를 치듯 한 번 그려지는 빨간 원 */
+.map-circle { fill: none; stroke: var(--stamp); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: map-circle-draw .8s .2s ease-out forwards; }
+.map-tag rect { fill: #fff; stroke: var(--stamp); stroke-width: 2; filter: drop-shadow(0 2px 3px rgba(21,50,92,.25)); }
+.map-tag text { fill: var(--ink); font-family: var(--font-ui); }
 .where-map figcaption { margin-top: 8px; color: var(--ink-soft); font: 17px/1.3 var(--font-ui); text-align: center; }
 
 .country-flag img { display: block; width: 104px; height: auto; aspect-ratio: 4 / 3; border-radius: 10px; object-fit: cover; box-shadow: 0 0 0 4px #fff, 0 6px 14px rgba(0,0,0,.12); }
@@ -783,7 +784,7 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
   100% { opacity: 1; transform: rotate(12deg) scale(1); }
 }
 @keyframes art-pop { from { opacity: 0; transform: rotate(-8deg) scale(.6); } to { opacity: 1; transform: rotate(-2deg) scale(1); } }
-@keyframes map-pulse { from { transform: scale(.6); opacity: .95; } to { transform: scale(2.4); opacity: 0; } }
+@keyframes map-circle-draw { to { stroke-dashoffset: 0; } }
 @keyframes confetti-fall { to { transform: translate(var(--drift), 110vh) rotate(760deg); } }
 
 /* ── 세로 패드 · 좁은 화면: 지구본 위, 국기 목록 아래 ── */

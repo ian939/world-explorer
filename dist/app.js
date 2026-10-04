@@ -173,37 +173,81 @@
     const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
     return polygons.map(polygon => polygon.map(ringPath).join("")).join("");
   }
+  // 땅 조각(본토·섬)마다 지도 위 네모 범위
+  function polygonBoxes(feature) {
+    const geometry = feature.geometry;
+    if (!geometry) return [];
+    const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
+    return polygons.map(polygon => {
+      const xs = polygon[0].map(([lon]) => Number(mapX(lon))), ys = polygon[0].map(([, lat]) => Number(mapY(lat)));
+      return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    });
+  }
   function buildWorldMap(geojson) {
     if (worldMap) return worldMap;
-    const byIso = new Map();
+    const byIso = new Map(), boxes = new Map();
     let base = "";
     geojson.features.forEach(feature => {
       if (feature.properties && feature.properties.CONTINENT === "Antarctica") return;
       const d = featurePath(feature);
       base += d;
       const iso = featureIso(feature);
-      if (countries.some(country => country.iso === iso)) byIso.set(iso, (byIso.get(iso) || "") + d);
+      if (countries.some(country => country.iso === iso)) {
+        byIso.set(iso, (byIso.get(iso) || "") + d);
+        boxes.set(iso, (boxes.get(iso) || []).concat(polygonBoxes(feature)));
+      }
     });
-    worldMap = { base, byIso };
+    worldMap = { base, byIso, boxes };
     return worldMap;
   }
+  // 동그라미를 칠 범위: 나라 한가운데가 들어 있는 본토 + 그 가까이 있는 섬 (멀리 떨어진 해외 땅은 뺀다)
+  function countryArea(country) {
+    const px = Number(mapX(country.lon)), py = Number(mapY(country.lat));
+    const boxes = worldMap.boxes.get(country.iso) || [];
+    if (!boxes.length) return { x0: px - 8, x1: px + 8, y0: py - 8, y1: py + 8 };
+    const center = box => [(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2];
+    const gap = box => Math.max(box.x0 - px, px - box.x1, 0) + Math.max(box.y0 - py, py - box.y1, 0);
+    const main = boxes.reduce((best, box) => gap(box) < gap(best) ? box : best);
+    const [mx, my] = center(main);
+    const reach = Math.max(main.x1 - main.x0, main.y1 - main.y0) * 0.6 + 70;
+    const near = boxes.filter(box => { const [x, y] = center(box); return Math.hypot(x - mx, y - my) <= reach; });
+    return near.reduce((all, box) => ({ x0: Math.min(all.x0, box.x0), x1: Math.max(all.x1, box.x1), y0: Math.min(all.y0, box.y0), y1: Math.max(all.y1, box.y1) }), main);
+  }
+  // 이번 나라만 색을 칠하고 굵은 테두리 + 빨간 동그라미 + 국기 이름표 (다른 나라는 모두 회색)
   function whereMapSvg(country) {
     const map = worldMap;
-    const opened = countries.filter(item => item.id !== country.id && state.discovered.has(item.id))
-      .map(item => `<path class="map-opened" d="${map.byIso.get(item.iso) || ""}" fill="${item.accent}" />`).join("");
-    const cx = mapX(country.lon), cy = mapY(country.lat);
-    let viewBox = `0 0 ${MAP_W} ${MAP_H}`;
+    const area = countryArea(country);
+    const ex = (area.x0 + area.x1) / 2, ey = (area.y0 + area.y1) / 2;
+    // 작은 나라는 넉넉하게, 큰 나라(러시아 등)는 지도 밖으로 크게 나가지 않게 딱 맞게
+    const around = size => Math.max(30, size / 2 * (size > 220 ? 1.04 : 1.2) + 14);
+    const rx = around(area.x1 - area.x0), ry = around(area.y1 - area.y0);
+    // 폰처럼 좁은 화면은 나라 주변을 확대 (동그라미와 이름표가 다 들어오게)
+    let vx = 0, vy = 0, vw = MAP_W, vh = MAP_H;
     if (window.innerWidth < 640) {
-      const w = MAP_W / 2, h = MAP_H / 2;
-      const x = Math.min(MAP_W - w, Math.max(0, cx - w / 2)), y = Math.min(MAP_H - h, Math.max(0, cy - h / 2));
-      viewBox = `${x.toFixed(0)} ${y.toFixed(0)} ${w} ${h}`;
+      vw = Math.min(MAP_W, Math.max(MAP_W / 2, rx * 2 + 120, (ry * 2 + 160) * MAP_W / MAP_H));
+      vh = vw * MAP_H / MAP_W;
+      vx = Math.min(MAP_W - vw, Math.max(0, ex - vw / 2));
+      vy = Math.min(MAP_H - vh, Math.max(0, ey - vh / 2));
     }
-    return `<svg viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+    // 이름표: 동그라미 위, 자리가 없으면 아래
+    // 이름표·선 굵기는 화면에서 비슷한 크기로 보이게 (폰은 지도가 작게 보이므로 더 키운다)
+    const scale = vw / MAP_W * (window.innerWidth < 640 ? 2.2 : 1);
+    const tagH = 46 * scale, flagW = 40 * scale, flagH = 30 * scale, font = 26 * scale, pad = 10 * scale;
+    const tagW = pad * 3 + flagW + country.name.length * font * 0.95;
+    let tagY = ey - ry - 10 * scale - tagH;
+    if (tagY < vy + 4 * scale) tagY = ey + ry + 10 * scale;
+    const tagX = Math.min(vx + vw - tagW - 6 * scale, Math.max(vx + 6 * scale, ex - tagW / 2));
+    const n = value => value.toFixed(1);
+    return `<svg viewBox="${n(vx)} ${n(vy)} ${n(vw)} ${n(vh)}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
       <rect class="map-sea" width="${MAP_W}" height="${MAP_H}" />
-      <path class="map-land" d="${map.base}" />${opened}
-      <path class="map-here" d="${map.byIso.get(country.iso) || ""}" />
-      <circle class="map-here-ring" cx="${cx}" cy="${cy}" r="16" />
-      <circle class="map-here-dot" cx="${cx}" cy="${cy}" r="7" />
+      <path class="map-land" d="${map.base}" />
+      <path class="map-here" d="${map.byIso.get(country.iso) || ""}" style="stroke-width:${n(3 * scale)}" />
+      <ellipse class="map-circle" cx="${n(ex)}" cy="${n(ey)}" rx="${n(rx)}" ry="${n(ry)}" pathLength="100" style="stroke-width:${n(6 * scale)}" />
+      <g class="map-tag">
+        <rect x="${n(tagX)}" y="${n(tagY)}" width="${n(tagW)}" height="${n(tagH)}" rx="${n(tagH / 2)}" />
+        <image href="${flagAsset(country)}" x="${n(tagX + pad)}" y="${n(tagY + (tagH - flagH) / 2)}" width="${n(flagW)}" height="${n(flagH)}" preserveAspectRatio="xMidYMid slice" />
+        <text x="${n(tagX + pad * 2 + flagW)}" y="${n(tagY + tagH / 2)}" dominant-baseline="central" style="font-size:${n(font)}px">${country.name}</text>
+      </g>
     </svg>`;
   }
   function renderWhereMap(country) {
@@ -453,7 +497,7 @@
         </div>
         <figure class="where-map" style="--here:${country.accent}">
           <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
-          <figcaption><span aria-hidden="true">📍</span> 세계지도에서 반짝이는 곳이 ${country.name}${ieyo(country.name)}</figcaption>
+          <figcaption><span aria-hidden="true">⭕</span> 빨간 동그라미 안이 ${country.name}${ieyo(country.name)}</figcaption>
         </figure>
         <dl class="country-quickfacts">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
         <div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
