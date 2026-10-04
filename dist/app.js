@@ -2,10 +2,11 @@
   "use strict";
 
   const STORAGE_KEY = "world-explorer-progress-v2";
+  const SOUND_KEY = "world-explorer-sound";
   const countries = Array.isArray(window.WORLD_EXPLORER_COUNTRIES) ? window.WORLD_EXPLORER_COUNTRIES : [];
 
   const regionColors = { 아시아: "#efae42", 유럽: "#7183dc", 아프리카: "#63a95d", 아메리카: "#d96a69", 오세아니아: "#34a6a4", 남극: "#d4e8ea" };
-  const state = { discovered: loadProgress(), activeCountry: null, pointed: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
+  const state = { discovered: loadProgress(), activeCountry: null, pointed: null, missionIndex: 0, soundOn: loadSound(), view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
   const els = {
     globeWrap: document.getElementById("globeWrap"), globeCanvas: document.getElementById("globeCanvas"), globeLoading: document.getElementById("globeLoading"), globeError: document.getElementById("globeError"),
     progressText: document.getElementById("progressText"), progressTrack: document.getElementById("progressTrack"), progressBar: document.getElementById("progressBar"), goalText: document.getElementById("goalText"), guideTitle: document.getElementById("guideTitle"), guideMessage: document.getElementById("guideMessage"),
@@ -18,6 +19,11 @@
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       return Array.isArray(saved) ? new Set(saved.filter(id => countries.some(country => country.id === id))) : new Set();
     } catch (_) { return new Set(); }
+  }
+
+  // 소리는 처음부터 켜 두고, 아이(보호자)가 끄면 그 선택을 기억한다
+  function loadSound() {
+    try { return localStorage.getItem(SOUND_KEY) !== "off"; } catch (_) { return true; }
   }
 
   function saveProgress() {
@@ -35,6 +41,7 @@
 
   // 퀴즈를 다 맞히면 받는 그림: 두 형제가 그 나라 랜드마크 앞에서 찍은 크레파스 그림
   const landmarks = window.WORLD_EXPLORER_LANDMARKS || {};
+  const capitals = window.WORLD_EXPLORER_CAPITALS || {};
   function landmarkName(country) { return landmarks[country.id] ? landmarks[country.id].name : country.place.split(" · ")[0]; }
   // 큰 그림은 성공 화면에만, 도감 카드·지구본 배지는 작은 그림(thumb)
   function artAsset(country, size = "thumb") { return size === "full" ? `./assets/landmarks/${country.id}.webp` : `./assets/landmarks/thumb/${country.id}.webp`; }
@@ -237,23 +244,68 @@
     if (tagY < vy + 4 * scale) tagY = ey + ry + 10 * scale;
     const tagX = Math.min(vx + vw - tagW - 6 * scale, Math.max(vx + 6 * scale, ex - tagW / 2));
     const n = value => value.toFixed(1);
+
+    // 수도: 빨간 핀 + "수도 ○○" 이름표 (핀 오른쪽, 자리가 없으면 왼쪽)
+    const capital = capitals[country.id];
+    let capitalSvg = "";
+    if (capital) {
+      const px = Number(mapX(capital.lon)), py = Number(mapY(capital.lat));
+      const pin = 1.1 * scale;
+      const capFont = 19 * scale, capH = 32 * scale, capPad = 9 * scale;
+      const capText = `수도 ${capital.name}`;
+      const capW = capPad * 2 + capText.replace(/ /g, "").length * capFont * 0.95 + capFont * 0.3;
+      let capX = px + 12 * scale;
+      if (capX + capW > vx + vw - 4 * scale) capX = px - 12 * scale - capW;
+      const capY = py - 22 * pin - capH / 2;
+      // 나라 이름표와 겹치면 나라 이름표를 수도 이름표 위(자리가 없으면 아래)로 비킨다
+      const overlap = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
+      const pinTop = py - 34 * pin;
+      if (overlap(tagX, tagY, tagW, tagH, Math.min(capX, px - 12 * pin), Math.min(capY, pinTop), capW + 24 * pin, capH + 34 * pin)) {
+        tagY = Math.min(capY, pinTop) - 8 * scale - tagH;
+        if (tagY < vy + 4 * scale) tagY = Math.max(capY + capH, py) + 10 * scale;
+      }
+      capitalSvg = `
+      <g class="map-capital" data-fit="${capX < px ? "left" : "right"}" data-pad="${n(capPad)}" data-lead="0">
+        <g transform="translate(${n(px)} ${n(py)}) scale(${pin.toFixed(3)})"><g class="map-pin">
+          <path d="M0 0C-4-9-11-14-11-22A11 11 0 1 1 11-22C11-14 4-9 0 0Z" />
+          <circle cy="-22" r="4.5" />
+        </g></g>
+        <g><rect x="${n(capX)}" y="${n(capY)}" width="${n(capW)}" height="${n(capH)}" rx="${n(capH / 2)}" />
+        <text x="${n(capX + capPad)}" y="${n(capY + capH / 2)}" dominant-baseline="central" style="font-size:${n(capFont)}px"><tspan class="map-capital-label">수도</tspan> ${capital.name}</text></g>
+      </g>`;
+    }
     return `<svg viewBox="${n(vx)} ${n(vy)} ${n(vw)} ${n(vh)}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
       <rect class="map-sea" width="${MAP_W}" height="${MAP_H}" />
       <path class="map-land" d="${map.base}" />
       <path class="map-here" d="${map.byIso.get(country.iso) || ""}" style="stroke-width:${n(3 * scale)}" />
-      <g class="map-tag">
+      <g class="map-tag" data-fit="center" data-pad="${n(pad)}" data-lead="${n(pad + flagW)}">
         <rect x="${n(tagX)}" y="${n(tagY)}" width="${n(tagW)}" height="${n(tagH)}" rx="${n(tagH / 2)}" />
         <image href="${flagAsset(country)}" x="${n(tagX + pad)}" y="${n(tagY + (tagH - flagH) / 2)}" width="${n(flagW)}" height="${n(flagH)}" preserveAspectRatio="xMidYMid slice" />
         <text x="${n(tagX + pad * 2 + flagW)}" y="${n(tagY + tagH / 2)}" dominant-baseline="central" style="font-size:${n(font)}px">${country.name}</text>
-      </g>
+      </g>${capitalSvg}
     </svg>`;
+  }
+  // 이름표 상자를 실제 글자 폭에 맞춘다 (영문·점이 섞인 이름은 어림값이 틀리므로)
+  function fitMapLabels(holder) {
+    holder.querySelectorAll("[data-fit]").forEach(group => {
+      const rect = group.querySelector("rect"), text = group.querySelector("text");
+      if (!rect || !text || !text.getComputedTextLength) return;
+      const pad = Number(group.dataset.pad), lead = Number(group.dataset.lead);
+      const width = lead + pad + text.getComputedTextLength() + pad;
+      const x = Number(rect.getAttribute("x")), oldWidth = Number(rect.getAttribute("width"));
+      const newX = group.dataset.fit === "left" ? x + oldWidth - width : group.dataset.fit === "center" ? x + (oldWidth - width) / 2 : x;
+      const shift = newX - x;
+      rect.setAttribute("x", newX.toFixed(1));
+      rect.setAttribute("width", width.toFixed(1));
+      group.querySelectorAll("text, image").forEach(item => item.setAttribute("x", (Number(item.getAttribute("x")) + shift).toFixed(1)));
+    });
   }
   function renderWhereMap(country) {
     const holder = document.getElementById("whereMap");
     if (!holder) return;
     loadGeojson().then(geojson => {
       buildWorldMap(geojson);
-      if (state.activeCountry === country && holder.isConnected) holder.innerHTML = whereMapSvg(country);
+      if (state.activeCountry === country && holder.isConnected) { holder.innerHTML = whereMapSvg(country); fitMapLabels(holder); }
     }).catch(() => { holder.classList.add("is-empty"); });
   }
 
@@ -495,7 +547,7 @@
         </div>
         <figure class="where-map" style="--here:${country.accent}">
           <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
-          <figcaption><span aria-hidden="true">📍</span> 색칠된 곳이 ${country.name}${ieyo(country.name)}</figcaption>
+          <figcaption>색칠된 곳이 ${country.name}${ieyo(country.name)}${capitals[country.id] ? ` · <span aria-hidden="true">📍</span> 핀이 수도 ${capitals[country.id].name}` : ""}</figcaption>
         </figure>
         <dl class="country-quickfacts" style="--facts:${country.quickFacts.length}">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
         ${country.cards ? guideCardsHtml(country, found) : `<div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
@@ -508,12 +560,12 @@
     renderWhereMap(country);
     bindArtButtons();
     document.getElementById("speakCountry").addEventListener("click", () => {
-      if (country.cards) { speakParts(guideSpeech(country)); return; }
-      speak(`${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}`);
+      if (country.cards) { listen(guideSpeech(country)); return; }
+      listen([{ text: `${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}` }]);
     });
     els.dialogContent.querySelectorAll("[data-greet]").forEach(button => button.addEventListener("click", () => {
       const line = country.greet.lines[Number(button.dataset.greet)];
-      speakParts([nativePart(country, line), { text: line.mean }]);
+      listen([nativePart(country, line), { text: line.mean }]);
     }));
     document.getElementById("startMission").addEventListener("click", () => renderMission(country, 0));
   }
@@ -580,7 +632,7 @@
     els.dialogContent.querySelectorAll("[data-option]").forEach(button => button.addEventListener("click", () => answerMission(country, mission, Number(button.dataset.option), button)));
     if (listenLine) {
       // 뜻을 맞히는 문제라 원어만 들려준다
-      document.getElementById("listenAgain").addEventListener("click", () => speakParts([nativePart(country, listenLine)]));
+      document.getElementById("listenAgain").addEventListener("click", () => listen([nativePart(country, listenLine)]));
       if (state.soundOn) speakParts([nativePart(country, listenLine)]);
     }
     focusDialogTitle();
@@ -685,6 +737,7 @@
   }
 
   function closeCountryDialog() {
+    stopSpeaking();
     els.dialog.hidden = true;
     setBackgroundInert(false);
     document.body.style.overflow = "";
@@ -710,13 +763,40 @@
 
   function speak(text) { speakParts([{ text }]); }
 
+  function showSoundState() {
+    els.soundButton.textContent = state.soundOn ? "🔊" : "🔇";
+    els.soundButton.setAttribute("aria-pressed", String(state.soundOn));
+    els.soundButton.setAttribute("aria-label", state.soundOn ? "소리 끄기" : "소리 켜기");
+  }
+  // 소리를 끄면 읽고 있던 것(전체 이야기 듣기 포함)을 바로 멈춘다
+  function setSound(on) {
+    state.soundOn = on;
+    try { localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch (_) { /* 저장을 쓸 수 없는 환경 */ }
+    showSoundState();
+    if (!on) stopSpeaking();
+  }
+  let speechRun = 0;
+  let currentUtterance = null;
+  function stopSpeaking() {
+    speechRun += 1;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+  // 🔊 버튼처럼 아이가 직접 들으려고 누른 것: 소리가 꺼져 있으면 켜고 읽는다
+  function listen(parts) {
+    if (!state.soundOn) setSound(true);
+    speakParts(parts);
+  }
+
   // 여러 조각을 이어서 읽는다. lang이 있는 조각(원어 인사)은 그 나라 말 목소리로 읽고,
   // 기기에 그 목소리가 없으면 한글 발음(say)을 한국어 목소리로 읽는다.
+  // 한 조각씩 이어 읽는다(한꺼번에 줄 세우면 기기에 따라 끈 뒤에도 남은 조각을 읽는다).
   function speakParts(parts) {
     if (!("speechSynthesis" in window)) { showToast("이 기기에서는 읽어주기를 사용할 수 없어요."); return; }
-    window.speechSynthesis.cancel();
+    stopSpeaking();
+    if (!state.soundOn) return;
+    const run = speechRun;
     const voices = window.speechSynthesis.getVoices();
-    parts.forEach(part => {
+    const queue = parts.map(part => {
       const utterance = new SpeechSynthesisUtterance(part.text);
       utterance.lang = "ko-KR";
       utterance.rate = part.rate || 0.88;
@@ -727,8 +807,17 @@
         else if (voices.length && part.say) utterance.text = part.say;
         else utterance.lang = part.lang;
       }
-      window.speechSynthesis.speak(utterance);
+      return utterance;
     });
+    const next = () => {
+      if (run !== speechRun || !state.soundOn || !queue.length) return;
+      const utterance = queue.shift();
+      currentUtterance = utterance; // 붙잡아 두지 않으면 일부 브라우저가 onend를 잃어버린다
+      utterance.onend = next;
+      utterance.onerror = next;
+      window.speechSynthesis.speak(utterance);
+    };
+    next();
   }
   function voiceFor(voices, lang) {
     const norm = value => value.replace("_", "-").toLowerCase();
@@ -836,12 +925,10 @@
       setView("explore");
       showToast("탐험 기록을 처음으로 돌렸어요.");
     });
+    showSoundState();
     els.soundButton.addEventListener("click", () => {
-      state.soundOn = !state.soundOn;
-      els.soundButton.textContent = state.soundOn ? "🔊" : "🔇";
-      els.soundButton.setAttribute("aria-pressed", String(state.soundOn));
-      els.soundButton.setAttribute("aria-label", state.soundOn ? "소리 끄기" : "소리 켜기");
-      if (state.soundOn) speak("소리를 켰어요."); else if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      setSound(!state.soundOn);
+      if (state.soundOn) speak("소리를 켰어요.");
     });
     document.addEventListener("visibilitychange", () => {
       if (!state.globe) return;
