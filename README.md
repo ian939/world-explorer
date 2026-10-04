@@ -22,7 +22,9 @@ https://ian939.github.io/world-explorer/
 - 60개 나라 각각의 핵심 정보 3개, 상세 학습 카드 4개, 연속 퀴즈 3문제
 - 잠긴 나라는 회색, 도감을 열면 고유 색으로 바뀌는 지도 상태
 - 틀려도 실패하지 않고 힌트를 받는 퀴즈
-- 대륙별 여권 페이지에 나라 도장이 찍히는 도감 (퀴즈 완주 때 "도장 쾅")
+- 국기를 누르면 지구본이 그 나라로 돌아가 노랗게 빛나고, 지구본에서 그 땅을 눌러야 나라 창이 열림
+- 나라 창 위쪽 큰 세계지도에 그 나라 자리 표시 (폰에서는 주변을 확대)
+- 퀴즈 3문제를 다 맞히면 두 형제가 그 나라 랜드마크 앞에서 찍은 크레파스 그림(`assets/landmarks/<id>.webp`, 목록 `data/landmarks.js`)을 받음 — 대륙별 도감에 사진처럼 쌓이고, 지구본의 그 나라 자리에도 그림 배지가 붙음
 - 브라우저 기기에 자동 저장되는 발견 기록
 - 한국어 음성 읽어주기
 - 보호자 확인 후 진행 기록 초기화
@@ -49,11 +51,13 @@ https://ian939.github.io/world-explorer/
    ├─ assets/
    │  ├─ compass-mascot.png
    │  ├─ ocean-paper-texture.png
+   │  ├─ landmarks/
    │  └─ flags/
    ├─ data/
    │  ├─ countries.geojson
    │  ├─ country-content.js
-   │  └─ country-content-extra.js
+   │  ├─ country-content-extra.js
+   │  └─ landmarks.js
    └─ vendor/
       └─ globe.gl.min.js
 ```
