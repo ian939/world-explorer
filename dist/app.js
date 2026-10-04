@@ -63,6 +63,10 @@
   }
 
   const continentOrder = ["아시아", "유럽", "아프리카", "아메리카", "오세아니아"];
+  const SPEECH = window.WORLD_EXPLORER_SPEECH;
+  const recordedVoice = new Set((window.WORLD_EXPLORER_VOICE || "").split(" ").filter(Boolean));
+  const voicePlayer = new Audio(); // 하나를 계속 써야 iPad가 두 번째 소리부터 막지 않는다
+  voicePlayer.preload = "auto";
   // 긴 나라 이름은 줄을 바꾸지 않고 글자를 줄여 한 줄에 넣는다
   function nameClass(country) { return country.name.length >= 7 ? "name-long" : country.name.length >= 5 ? "name-mid" : ""; }
   function continentOf(country) { return country.region.startsWith("유럽") ? "유럽" : country.region; }
@@ -631,7 +635,7 @@
     els.guideMessage.textContent = `지구본에서 노랗게 빛나는 ${country.name} 땅을 손가락으로 콕!`;
     const rect = els.globeWrap.getBoundingClientRect();
     if (rect.top < 0 || rect.bottom > window.innerHeight) els.globeWrap.scrollIntoView({ block: "center", behavior: reduceMotion.matches ? "auto" : "smooth" });
-    if (state.soundOn) speak(`${country.name}, 여기 있어요. 반짝이는 곳을 눌러 보세요.`);
+    if (state.soundOn) speakParts(SPEECH.point(country));
     // 키보드로는 지구본을 누를 수 없으므로 돌아간 뒤 창을 열어 준다
     if (byKeyboard) pointTimer = window.setTimeout(() => openCountry(id, { skipFly: true }), reduceMotion.matches ? 0 : 1400);
   }
@@ -654,7 +658,7 @@
     els.guideMessage.textContent = `노란 테두리 안이 ${name}${batchim(name) ? "이야" : "야"}. 나라 ${total}개를 찾아봐!`;
     const rect = els.globeWrap.getBoundingClientRect();
     if (rect.top < 0 || rect.bottom > window.innerHeight) els.globeWrap.scrollIntoView({ block: "center", behavior: reduceMotion.matches ? "auto" : "smooth" });
-    if (state.soundOn) speak(`${name}${batchim(name) && batchim(name) !== 8 ? "으로" : "로"} 가 볼까요?`);
+    if (state.soundOn) speakParts(SPEECH.continent(name));
   }
   function clearContinent() {
     if (!state.focusContinent) return;
@@ -757,7 +761,7 @@
     setBackgroundInert(true);
     document.body.style.overflow = "hidden";
     window.setTimeout(() => els.dialog.querySelector("button")?.focus(), 40);
-    if (state.soundOn) speak(`${country.name}에 도착했어요. ${country.story}`);
+    if (state.soundOn) speakParts(SPEECH.arrival(country));
   }
 
   function renderCountryIntro(country) {
@@ -785,12 +789,11 @@
     renderWhereMap(country);
     bindArtButtons();
     document.getElementById("speakCountry").addEventListener("click", () => {
-      if (country.cards) { listen(guideSpeech(country)); return; }
-      listen([{ text: `${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}` }]);
+      listen(SPEECH.story(country));
     });
     els.dialogContent.querySelectorAll("[data-greet]").forEach(button => button.addEventListener("click", () => {
       const line = country.greet.lines[Number(button.dataset.greet)];
-      listen([nativePart(country, line), { text: line.mean }]);
+      listen(SPEECH.greet(country, line));
     }));
     document.getElementById("startMission").addEventListener("click", () => renderMission(country, 0));
   }
@@ -813,16 +816,6 @@
           ${card.wide && !found ? `<p class="card-reward"><span aria-hidden="true">📸</span> 퀴즈를 다 맞히면 두 형제가 여기서 찍은 그림을 받아요!</p>` : ""}
         </article>`;
     return `${greetHtml}<div class="learning-grid">${country.cards.map(cardHtml).join("")}</div>`;
-  }
-  function guideSpeech(country) {
-    const parts = [{ text: `${country.name}. ${country.story}` }];
-    if (country.greet) {
-      parts.push({ text: "인사 따라 하기." });
-      country.greet.lines.forEach(line => parts.push(nativePart(country, line), { text: line.mean }));
-      if (country.greet.note) parts.push({ text: country.greet.note });
-    }
-    country.cards.forEach(card => parts.push({ text: `${card.label.replace(" · ", ", ")}. ${card.title}. ${[...(card.lines || []), ...(card.list || [])].join(" ")}` }));
-    return parts;
   }
   function shuffled(list) {
     const copy = list.slice();
@@ -860,8 +853,8 @@
     els.dialogContent.querySelectorAll("[data-option]").forEach(button => button.addEventListener("click", () => answerMission(country, mission, Number(button.dataset.option), button)));
     if (listenLine) {
       // 뜻을 맞히는 문제라 원어만 들려준다
-      document.getElementById("listenAgain").addEventListener("click", () => listen([nativePart(country, listenLine)]));
-      if (state.soundOn) speakParts([nativePart(country, listenLine)]);
+      document.getElementById("listenAgain").addEventListener("click", () => listen(SPEECH.listen(country, listenLine)));
+      if (state.soundOn) speakParts(SPEECH.listen(country, listenLine));
     }
     focusDialogTitle();
   }
@@ -884,7 +877,7 @@
         renderCollection();
         showSuccess(country);
         launchConfetti();
-        if (state.soundOn) speak(`${koCount(country.missions.length)} 문제를 모두 맞혔어요. ${country.name} 도감이 열렸어요.`);
+        if (state.soundOn) speakParts(SPEECH.success(country));
       });
     } else {
       button.classList.add("is-wrong");
@@ -989,7 +982,6 @@
     window.scrollTo(0, 0);
   }
 
-  function speak(text) { speakParts([{ text }]); }
 
   const soundButtons = () => [els.soundButton, document.getElementById("dialogSound")].filter(Boolean);
   function showSoundState() {
@@ -1010,6 +1002,8 @@
   let currentUtterance = null;
   function stopSpeaking() {
     speechRun += 1;
+    voicePlayer.onended = voicePlayer.onerror = null;
+    voicePlayer.pause();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }
   // 🔊 버튼처럼 아이가 직접 들으려고 누른 것: 소리가 꺼져 있으면 켜고 읽는다
@@ -1018,45 +1012,61 @@
     speakParts(parts);
   }
 
-  // 여러 조각을 이어서 읽는다. lang이 있는 조각(원어 인사)은 그 나라 말 목소리로 읽고,
-  // 기기에 그 목소리가 없으면 한글 발음(say)을 한국어 목소리로 읽는다.
-  // 한 조각씩 이어 읽는다(한꺼번에 줄 세우면 기기에 따라 끈 뒤에도 남은 조각을 읽는다).
+  // 여러 조각을 한 조각씩 이어서 읽는다(한꺼번에 줄 세우면 기기에 따라 끈 뒤에도 남은 조각을 읽는다).
+  // 미리 녹음한 소리(assets/voice/, 선희 + 원어 목소리)가 있으면 그걸 틀고, 없거나 못 틀면 기기 목소리로 읽는다.
   function speakParts(parts) {
-    if (!("speechSynthesis" in window)) { showToast("이 기기에서는 읽어주기를 사용할 수 없어요."); return; }
     stopSpeaking();
     if (!state.soundOn) return;
     const run = speechRun;
-    const voices = window.speechSynthesis.getVoices();
-    const queue = parts.map(part => {
-      const utterance = new SpeechSynthesisUtterance(part.text);
-      utterance.lang = "ko-KR";
-      utterance.rate = part.rate || 0.88;
-      utterance.pitch = 1.08;
-      if (part.lang) {
-        const voice = voiceFor(voices, part.lang);
-        if (voice) { try { utterance.voice = voice; } catch (error) { /* 목소리를 못 고르면 lang만으로 읽는다 */ } utterance.lang = voice.lang; }
-        else if (voices.length && part.say) utterance.text = part.say;
-        else utterance.lang = part.lang;
-      }
-      return utterance;
-    });
+    const queue = parts.slice();
     const next = () => {
       if (run !== speechRun || !state.soundOn || !queue.length) return;
-      const utterance = queue.shift();
-      currentUtterance = utterance; // 붙잡아 두지 않으면 일부 브라우저가 onend를 잃어버린다
-      utterance.onend = next;
-      utterance.onerror = next;
-      window.speechSynthesis.speak(utterance);
+      const part = queue.shift();
+      const src = recordedSrc(part);
+      const device = () => { if (run === speechRun) speakDevice(part, next); };
+      if (src) playRecorded(src, next, device); else device();
     };
     next();
+  }
+  function recordedSrc(part) {
+    for (const key of [SPEECH.voiceKey(part), SPEECH.fallbackKey(part)]) {
+      if (key && recordedVoice.has(SPEECH.hash(key))) return `./assets/voice/${SPEECH.hash(key)}.mp3`;
+    }
+    return null;
+  }
+  function playRecorded(src, done, fail) {
+    let settled = false;
+    const once = callback => () => { if (settled) return; settled = true; voicePlayer.onended = voicePlayer.onerror = null; callback(); };
+    voicePlayer.onended = once(done);
+    voicePlayer.onerror = once(fail);
+    voicePlayer.src = src;
+    const playing = voicePlayer.play();
+    if (playing && playing.catch) playing.catch(once(fail));
+  }
+  // 원어 조각은 그 나라 말 목소리로 읽고, 기기에 그 목소리가 없으면 한글 발음(say)을 한국어 목소리로 읽는다.
+  function speakDevice(part, done) {
+    if (!("speechSynthesis" in window)) { done(); return; }
+    const voices = window.speechSynthesis.getVoices();
+    const utterance = new SpeechSynthesisUtterance(part.text);
+    utterance.lang = "ko-KR";
+    utterance.rate = part.rate || 0.88;
+    utterance.pitch = 1.08;
+    if (part.lang) {
+      const voice = voiceFor(voices, part.lang);
+      if (voice) { try { utterance.voice = voice; } catch (error) { /* 목소리를 못 고르면 lang만으로 읽는다 */ } utterance.lang = voice.lang; }
+      else if (voices.length && part.say) utterance.text = part.say;
+      else utterance.lang = part.lang;
+    }
+    currentUtterance = utterance; // 붙잡아 두지 않으면 일부 브라우저가 onend를 잃어버린다
+    utterance.onend = done;
+    utterance.onerror = done;
+    window.speechSynthesis.speak(utterance);
   }
   function voiceFor(voices, lang) {
     const norm = value => value.replace("_", "-").toLowerCase();
     const want = norm(lang);
     return voices.find(voice => norm(voice.lang) === want) || voices.find(voice => norm(voice.lang).split("-")[0] === want.split("-")[0]) || null;
   }
-  function nativePart(country, line) { return { text: line.text, say: line.say, lang: country.greet.lang, rate: 0.8 }; }
-  function koCount(n) { return ["영", "한", "두", "세", "네", "다섯", "여섯", "일곱"][n] || String(n); }
   if ("speechSynthesis" in window) window.speechSynthesis.getVoices(); // 목소리 목록을 미리 불러 둔다
 
   let toastTimer;
@@ -1159,7 +1169,7 @@
     showSoundState();
     soundButtons().forEach(button => button.addEventListener("click", () => {
       setSound(!state.soundOn);
-      if (state.soundOn) speak("소리를 켰어요.");
+      if (state.soundOn) speakParts(SPEECH.soundOn());
     }));
     document.addEventListener("visibilitychange", () => {
       if (!state.globe) return;
