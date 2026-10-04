@@ -47,6 +47,33 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
   await page.waitForFunction(() => Boolean(window.__worldExplorerQA?.globe));
 
+  const countryAudit = await page.evaluate(async () => {
+    const { countries, globe } = window.__worldExplorerQA;
+    const polygonIsos = new Set(globe.polygonsData().map(feature => {
+      const properties = feature.properties || {};
+      return [properties.ISO_A3, properties.ADM0_A3, properties.GU_A3, properties.SOV_A3].find(value => value && value !== '-99');
+    }));
+    const flagChecks = await Promise.all(countries.map(async country => ({
+      id: country.id,
+      ok: (await fetch(`./assets/flags/${country.id}.svg`)).ok
+    })));
+    return {
+      count: countries.length,
+      shortcutCount: document.querySelectorAll('[data-country-shortcut]').length,
+      invalidContent: countries.filter(country => country.quickFacts.length !== 3 || country.chapters.length !== 4 || country.missions.length !== 3).map(country => country.id),
+      missingPolygons: countries.filter(country => !polygonIsos.has(country.iso)).map(country => country.iso),
+      missingFlags: flagChecks.filter(flag => !flag.ok).map(flag => flag.id)
+    };
+  });
+
+  for (const countryId of await page.evaluate(() => window.__worldExplorerQA.countries.map(country => country.id))) {
+    await page.evaluate(id => window.__worldExplorerQA.openCountry(id), countryId);
+    await page.locator('#dialogTitle').waitFor();
+    assert(await page.locator('.country-quickfacts div').count() === 3, `${countryId} quick facts should be 3`);
+    assert(await page.locator('.learning-card').count() === 4, `${countryId} learning cards should be 4`);
+    await page.keyboard.press('Escape');
+  }
+
   const shortcut = page.locator('[data-country-shortcut="kr"]');
   await shortcut.focus();
   await shortcut.click();
@@ -105,21 +132,32 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
     shortcutFocusReturned,
     kidGuardResults,
     adultPasteAllowed,
+    countryAudit,
     minimumTarget: visibleTargetSizes.reduce((minimum, target) => Math.min(minimum, target.width, target.height), Infinity)
   };
   result.koreaHover = await completeCountry(page, { id: 'kr', name: '대한민국', lat: 36.2, lng: 127.8 }, [0, 0, 0]);
   await page.getByRole('button', { name: '다음 나라 찾기' }).click();
   result.japanOpened = await completeCountry(page, { id: 'jp', name: '일본', lat: 37.1, lng: 138.2 }, [2, 1, 0], true);
-  await page.getByRole('button', { name: '완성한 도감 보기' }).click();
+  await page.getByRole('button', { name: '다음 나라 찾기' }).click();
+  result.chinaOpened = await completeCountry(page, { id: 'cn', name: '중국', lat: 35.9, lng: 104.2 }, [0, 1, 0], true);
+  await page.getByRole('button', { name: '다음 나라 찾기' }).click();
+  await page.getByRole('tab', { name: /나의 세계도감/ }).click();
   result.progressComplete = await page.locator('#progressText').textContent();
   result.collectionCards = await page.locator('[data-open-country]').count();
+  result.collectionTotal = await page.locator('.country-card').count();
+  result.collectionLocked = await page.locator('.country-card.is-locked').count();
   await page.screenshot({ path: 'test-results/ipad-landscape-complete.png', fullPage: true });
 
   const persistedPage = await context.newPage();
   await persistedPage.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
   result.progressPersisted = await persistedPage.locator('#progressText').textContent();
   result.errors = errors;
-  assert(result.progressStart === '0 / 2', 'fresh progress should be 0 / 2');
+  assert(result.progressStart === '0 / 12', 'fresh progress should be 0 / 12');
+  assert(result.countryAudit.count === 12, 'country dataset should include 12 countries');
+  assert(result.countryAudit.shortcutCount === 12, 'all 12 countries need a flag shortcut');
+  assert(result.countryAudit.invalidContent.length === 0, `invalid country content: ${result.countryAudit.invalidContent.join(', ')}`);
+  assert(result.countryAudit.missingPolygons.length === 0, `missing country polygons: ${result.countryAudit.missingPolygons.join(', ')}`);
+  assert(result.countryAudit.missingFlags.length === 0, `missing country flags: ${result.countryAudit.missingFlags.join(', ')}`);
   assert(result.pinCount === 0, 'legacy pins should not exist');
   assert(result.webglCanvasCount === 1, 'globe canvas should exist');
   assert(result.dialogMainInert, 'background must be inert while a dialog is open');
@@ -128,9 +166,11 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   assert(Object.values(result.kidGuardResults).every(Boolean), 'kid-safe gesture, selection, drag, context-menu, and clipboard guards should prevent child-surface actions');
   assert(result.adultPasteAllowed, 'adult controls should preserve native clipboard behavior');
   assert(result.minimumTarget >= 44, `visible targets should be at least 44px; received ${result.minimumTarget}`);
-  assert(result.progressComplete === '2 / 2', 'journey should complete');
-  assert(result.progressPersisted === '2 / 2', 'progress should persist');
-  assert(result.collectionCards === 2, 'both atlas cards should unlock');
+  assert(result.progressComplete === '3 / 12', 'three completed journeys should update progress');
+  assert(result.progressPersisted === '3 / 12', 'progress should persist');
+  assert(result.collectionCards === 3, 'three atlas cards should unlock');
+  assert(result.collectionTotal === 12, 'atlas should render all 12 countries');
+  assert(result.collectionLocked === 9, 'remaining nine atlas cards should stay locked');
   assert(errors.length === 0, `page errors: ${errors.join('; ')}`);
   console.log(JSON.stringify(result, null, 2));
   await browser.close();

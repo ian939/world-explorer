@@ -2,42 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "world-explorer-progress-v2";
-  const countries = [
-    {
-      id: "kr", iso: "KOR", name: "대한민국", region: "아시아", lat: 36.2, lon: 127.8, flag: "🇰🇷", icon: "🐯", color: "#ffd7bf", accent: "#ea6f32",
-      hello: "안녕하세요!", place: "서울 · 한라산 · 한글", story: "아시아 동쪽, 한반도 남쪽에 있는 나라예요. 산이 많고 동쪽·서쪽·남쪽이 바다와 만나요.",
-      quickFacts: [["수도", "서울"], ["말과 글", "한국어 · 한글"], ["가장 높은 산", "한라산 1,947m"]],
-      chapters: [
-        { icon: "🧭", title: "어디에 있을까?", summary: "아시아 동쪽 한반도의 남쪽에 있어요.", details: ["동쪽에는 동해, 서쪽에는 서해, 남쪽에는 남해가 있어요.", "북쪽으로는 북한과 이어져 있어요."] },
-        { icon: "🏙️", title: "수도 서울", summary: "서울에는 옛 궁궐과 높은 건물이 함께 있어요.", details: ["한강이 도시 한가운데를 흘러요.", "경복궁 같은 조선 시대 궁궐을 만날 수 있어요."] },
-        { icon: "🔤", title: "우리 글자 한글", summary: "한글은 세종대왕이 백성이 쉽게 읽고 쓰도록 만든 글자예요.", details: ["기본 자음 14자와 모음 10자를 조합해 글자를 만들어요.", "‘안녕하세요’는 반갑고 공손한 인사예요."] },
-        { icon: "🌦️", title: "자연과 네 계절", summary: "봄·여름·가을·겨울의 모습이 뚜렷해요.", details: ["제주도의 한라산은 대한민국에서 가장 높은 산이에요.", "무궁화와 호랑이는 대한민국을 떠올리게 하는 상징이에요."] }
-      ],
-      remember: "대한민국 = 한반도 남쪽 · 수도 서울 · 우리 글자 한글",
-      missions: [
-        { type: "지도 탐정", prompt: "대한민국이 자리한 곳은 어디일까?", options: [["🧭", "아시아 동쪽의 한반도"], ["🏜️", "아프리카 북쪽의 사막"], ["🧊", "남극의 얼음 대륙"]], answer: 0, hint: "중국과 일본 사이를 살펴보세요.", explain: "맞아요. 대한민국은 아시아 동쪽, 한반도의 남쪽에 있어요." },
-        { type: "도시 탐정", prompt: "대한민국의 수도는 어디일까?", options: [["🏙️", "서울"], ["🗼", "도쿄"], ["🏯", "교토"]], answer: 0, hint: "한강이 흐르고 경복궁이 있는 도시예요.", explain: "서울은 대한민국의 수도예요. 한강과 여러 옛 궁궐을 만날 수 있어요." },
-        { type: "글자 탐정", prompt: "세종대왕이 백성을 위해 만든 글자는?", options: [["🔤", "한글"], ["🔢", "숫자"], ["🎵", "악보"]], answer: 0, hint: "지금 이 문제를 읽을 때 사용하는 글자예요.", explain: "한글은 자음과 모음을 모아 소리를 나타내는 우리 글자예요." }
-      ]
-    },
-    {
-      id: "jp", iso: "JPN", name: "일본", region: "아시아", lat: 37.1, lon: 138.2, flag: "🇯🇵", icon: "🌸", color: "#ffdfe7", accent: "#e85f7a",
-      hello: "곤니치와!", place: "도쿄 · 후지산 · 네 개의 큰 섬", story: "대한민국의 동쪽 바다 건너에 있는 섬나라예요. 네 개의 큰 섬과 수많은 작은 섬이 길게 이어져 있어요.",
-      quickFacts: [["수도", "도쿄"], ["말과 글", "일본어"], ["가장 높은 산", "후지산 3,776m"]],
-      chapters: [
-        { icon: "🏝️", title: "섬으로 된 나라", summary: "홋카이도·혼슈·시코쿠·규슈, 네 개의 큰 섬이 있어요.", details: ["혼슈는 네 섬 가운데 가장 크고 도쿄도 이곳에 있어요.", "남북으로 길어서 지역마다 날씨가 달라요."] },
-        { icon: "🏙️", title: "수도 도쿄", summary: "도쿄는 사람이 많이 모여 사는 큰 도시예요.", details: ["높은 건물과 오래된 신사·절을 함께 볼 수 있어요.", "빠른 열차인 신칸센이 여러 도시를 이어 줘요."] },
-        { icon: "🗻", title: "후지산과 자연", summary: "후지산은 높이 3,776m인 일본에서 가장 높은 산이에요.", details: ["일본에는 화산과 온천이 많아요.", "봄에는 여러 지역에서 벚꽃을 즐겨요."] },
-        { icon: "✍️", title: "말과 글", summary: "‘곤니치와’는 낮에 만난 사람에게 하는 인사예요.", details: ["히라가나·가타카나·한자를 함께 사용해요.", "식사 전에는 감사의 뜻을 담아 ‘이타다키마스’라고 말하기도 해요."] }
-      ],
-      remember: "일본 = 대한민국 동쪽의 섬나라 · 수도 도쿄 · 가장 높은 산 후지산",
-      missions: [
-        { type: "섬 탐정", prompt: "일본을 이루는 네 개의 큰 섬에 들어가지 않는 것은?", options: [["🏝️", "혼슈"], ["🏝️", "규슈"], ["🌴", "제주도"]], answer: 2, hint: "제주도는 대한민국의 섬이에요.", explain: "일본의 네 큰 섬은 홋카이도·혼슈·시코쿠·규슈예요. 제주도는 대한민국에 있어요." },
-        { type: "도시 탐정", prompt: "일본의 수도는 어디일까?", options: [["🏯", "교토"], ["🏙️", "도쿄"], ["🌉", "오사카"]], answer: 1, hint: "일본에서 가장 큰 도시권의 중심이에요.", explain: "도쿄는 일본의 수도예요. 가장 큰 섬인 혼슈에 있어요." },
-        { type: "자연 탐정", prompt: "일본에서 가장 높은 산은 무엇일까?", options: [["🗻", "후지산"], ["⛰️", "한라산"], ["🏔️", "에베레스트산"]], answer: 0, hint: "높이가 3,776m이고 정상에 눈이 쌓이기도 해요.", explain: "후지산은 일본에서 가장 높은 산이며 높이는 3,776m예요." }
-      ]
-    }
-  ];
+  const countries = Array.isArray(window.WORLD_EXPLORER_COUNTRIES) ? window.WORLD_EXPLORER_COUNTRIES : [];
 
   const regionColors = { 아시아: "#efae42", 유럽: "#7183dc", 아프리카: "#63a95d", 아메리카: "#d96a69", 오세아니아: "#34a6a4", 남극: "#d4e8ea" };
   const state = { discovered: loadProgress(), activeCountry: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
@@ -122,7 +87,7 @@
         .onPolygonClick(feature => {
           const target = targetForFeature(feature);
           if (target) openCountry(target.id);
-          else showToast("대한민국이나 일본 영토를 찾아 눌러 보자!");
+           else showToast("회색으로 표시된 12개 탐험 나라를 찾아 눌러 보자!");
         })
         .onPolygonHover(feature => { els.globeCanvas.style.cursor = targetForFeature(feature) ? "pointer" : "grab"; })
         .pointsData(countries)
@@ -152,7 +117,7 @@
       state.resizeObserver = new ResizeObserver(sizeGlobe);
       state.resizeObserver.observe(els.globeWrap);
       if (location.hostname === "127.0.0.1" || location.hostname === "localhost") {
-        window.__worldExplorerQA = { globe: state.globe, openCountry };
+        window.__worldExplorerQA = { globe: state.globe, openCountry, countries };
       }
       els.globeLoading.hidden = true;
     } catch (error) {
@@ -212,6 +177,15 @@
       const next = count < 1 ? 1 : Math.min(total, Math.ceil((count + 1) / 3) * 3);
       els.goalText.textContent = `나라 ${next}개 발견하기`;
     }
+  }
+
+  function renderCountryShortcuts() {
+    const rail = document.getElementById("countryShortcutRail");
+    rail.innerHTML = countries.map(country => `
+      <button type="button" data-country-shortcut="${country.id}" aria-label="${country.name} 아직 잠김 탐험하기">
+        <img src="${flagAsset(country)}" width="64" height="48" alt="" aria-hidden="true" />
+        <span>${country.name} <small>아직 잠김</small></span>
+      </button>`).join("");
   }
 
   function renderCollection() {
@@ -325,7 +299,7 @@
     setBackgroundInert(false);
     document.body.style.overflow = "";
     els.guideTitle.textContent = state.discovered.size === countries.length ? "세계지도 완성!" : "다음에는 어디로 갈까?";
-    els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 두 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 아직 회색인 나라를 찾아보자!";
+    els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 12개 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 아직 회색인 나라를 찾아보자!";
     restoreFocus();
   }
 
@@ -489,6 +463,7 @@
   }
 
   setupKidSafeGuards();
+  renderCountryShortcuts();
   bindEvents();
   setupMascot();
   renderProgress();
