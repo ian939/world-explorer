@@ -763,10 +763,13 @@
 
   function speak(text) { speakParts([{ text }]); }
 
+  const soundButtons = () => [els.soundButton, document.getElementById("dialogSound")].filter(Boolean);
   function showSoundState() {
-    els.soundButton.textContent = state.soundOn ? "🔊" : "🔇";
-    els.soundButton.setAttribute("aria-pressed", String(state.soundOn));
-    els.soundButton.setAttribute("aria-label", state.soundOn ? "소리 끄기" : "소리 켜기");
+    soundButtons().forEach(button => {
+      button.textContent = state.soundOn ? "🔊" : "🔇";
+      button.setAttribute("aria-pressed", String(state.soundOn));
+      button.setAttribute("aria-label", state.soundOn ? "소리 끄기" : "소리 켜기");
+    });
   }
   // 소리를 끄면 읽고 있던 것(전체 이야기 듣기 포함)을 바로 멈춘다
   function setSound(on) {
@@ -926,10 +929,10 @@
       showToast("탐험 기록을 처음으로 돌렸어요.");
     });
     showSoundState();
-    els.soundButton.addEventListener("click", () => {
+    soundButtons().forEach(button => button.addEventListener("click", () => {
       setSound(!state.soundOn);
       if (state.soundOn) speak("소리를 켰어요.");
-    });
+    }));
     document.addEventListener("visibilitychange", () => {
       if (!state.globe) return;
       if (document.hidden) state.globe.pauseAnimation();
