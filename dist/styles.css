@@ -641,7 +641,7 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 .country-hero h2, .mission-screen h2, .success-screen h2, .guardian-dialog h2 { margin: 0; font: clamp(30px, 4.4vw, 46px)/1.12 var(--font-display); letter-spacing: -.02em; }
 .country-hero p:not(.eyebrow) { margin: 8px 0 0; font-size: 17px; font-weight: 700; line-height: 1.55; }
 
-.country-quickfacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.country-quickfacts { display: grid; grid-template-columns: repeat(var(--facts, 3), minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
 .country-quickfacts div { min-width: 0; padding: 14px 12px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 2px var(--paper-line); text-align: center; }
 .country-quickfacts dt { color: var(--ink-soft); font-size: 14px; font-weight: 700; }
 .country-quickfacts dd { margin: 6px 0 0; color: var(--sea); font: 21px/1.25 var(--font-ui); }
@@ -654,6 +654,32 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 .learning-card > p { margin: 0 0 8px; font-size: 17px; font-weight: 800; line-height: 1.6; }
 .learning-card ul { margin: 0; padding-left: 20px; color: var(--ink-soft); font-size: 16px; font-weight: 700; line-height: 1.65; }
 .learning-card li + li { margin-top: 2px; }
+
+/* 새 형식 나라 이야기: 원어 인사 + 이야기 카드 */
+.learning-title small { display: block; margin-bottom: 3px; color: var(--country-accent, var(--stamp)); font-size: 14px; font-weight: 800; }
+.guide-card > p { margin: 0 0 6px; font-size: 17px; font-weight: 700; line-height: 1.6; }
+.guide-card > p:first-of-type { font-weight: 800; }
+.guide-card ul { color: var(--ink); font-size: 17px; }
+.guide-card.is-wide { grid-column: 1 / -1; background: color-mix(in srgb, var(--country-tint) 45%, #fff); }
+.card-reward { margin-top: 10px !important; padding: 10px 14px; border-radius: 14px; background: #fff; color: var(--stamp); font-size: 16px !important; }
+.greet-card { margin: 0 0 12px; padding: 18px 20px; border-radius: 20px; background: #fff; box-shadow: 0 0 0 2px var(--paper-line); }
+.greet-lines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.greet-line {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  min-height: 112px; padding: 14px 52px 14px 16px;
+  border: 3px solid var(--country-tint); border-radius: 18px;
+  background: color-mix(in srgb, var(--country-tint) 35%, #fff); color: var(--ink); text-align: left;
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--country-accent) 35%, #fff);
+}
+.greet-line:active { transform: translateY(3px); box-shadow: 0 2px 0 color-mix(in srgb, var(--country-accent) 35%, #fff); }
+.greet-native { font: 24px/1.2 var(--font-ui); word-break: keep-all; }
+.greet-say { color: var(--country-accent); font-size: 20px; font-weight: 800; }
+.greet-mean { color: var(--ink-soft); font-size: 16px; font-weight: 700; }
+.greet-play { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--sun); font-size: 18px; }
+.greet-note { margin: 12px 0 0; font-size: 16px; font-weight: 700; color: var(--ink-soft); }
+.listen-button { margin-top: 16px; }
+.option-grid.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 520px; margin-inline: auto; }
+.option-flag { display: block; width: 100%; max-width: 150px; height: auto; margin: 0 auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
 
 .remember-strip {
   display: flex; align-items: center; gap: 14px;
@@ -832,7 +858,8 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
   .country-hero, .country-hero:has(.hero-art) { grid-template-columns: 1fr; margin-right: 0; margin-top: 50px; text-align: center; justify-items: center; }
   .success-stamp { right: auto; left: -6%; transform: rotate(-12deg); }
   .success-art { width: min(78%, calc((92dvh - 320px) * .75)); }
-  .country-quickfacts, .learning-grid, .option-grid { grid-template-columns: 1fr; }
+  .country-quickfacts, .learning-grid, .option-grid, .greet-lines { grid-template-columns: 1fr; }
+  .option-grid.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .option-button { min-height: 96px; }
   .dialog-actions, .mission-feedback { flex-direction: column; align-items: stretch; }
 }

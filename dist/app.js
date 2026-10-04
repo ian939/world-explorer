@@ -475,7 +475,7 @@
     state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!options.skipFly) flyTo(country);
     els.guideTitle.textContent = `${country.name}에 도착!`;
-    els.guideMessage.textContent = state.discovered.has(id) ? `${country.place} 이야기를 다시 읽거나 퀴즈를 풀어 보자.` : "정보 네 장을 읽고 퀴즈 세 개에 도전해 보자!";
+    els.guideMessage.textContent = state.discovered.has(id) ? `${country.place} 이야기를 다시 읽거나 퀴즈를 풀어 보자.` : `이야기를 읽고 퀴즈 ${country.missions.length}개에 도전해 보자!`;
     renderCountryIntro(country);
     els.dialog.hidden = false;
     setBackgroundInert(true);
@@ -497,18 +497,62 @@
           <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
           <figcaption><span aria-hidden="true">📍</span> 색칠된 곳이 ${country.name}${ieyo(country.name)}</figcaption>
         </figure>
-        <dl class="country-quickfacts">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
-        <div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
-        <aside class="remember-strip"><span aria-hidden="true">⭐</span><div><strong>이것만은 기억해요</strong><p>${country.remember}</p></div></aside>
+        <dl class="country-quickfacts" style="--facts:${country.quickFacts.length}">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
+        ${country.cards ? guideCardsHtml(country, found) : `<div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
+        <aside class="remember-strip"><span aria-hidden="true">⭐</span><div><strong>이것만은 기억해요</strong><p>${country.remember}</p></div></aside>`}
         <div class="dialog-actions">
           <button type="button" class="speak-button" id="speakCountry">🔊 전체 이야기 듣기</button>
-          <button type="button" class="primary-button" id="startMission">${found ? "퀴즈 다시 풀기" : "3문제 퀴즈 시작"}</button>
+          <button type="button" class="primary-button" id="startMission">${found ? "퀴즈 다시 풀기" : `${country.missions.length}문제 퀴즈 시작`}</button>
         </div>
       </section>`;
     renderWhereMap(country);
     bindArtButtons();
-    document.getElementById("speakCountry").addEventListener("click", () => speak(`${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}`));
+    document.getElementById("speakCountry").addEventListener("click", () => {
+      if (country.cards) { speakParts(guideSpeech(country)); return; }
+      speak(`${country.name}. ${country.story} ${country.chapters.map(chapter => `${chapter.title}. ${chapter.summary} ${chapter.details.join(" ")}`).join(" ")}`);
+    });
+    els.dialogContent.querySelectorAll("[data-greet]").forEach(button => button.addEventListener("click", () => {
+      const line = country.greet.lines[Number(button.dataset.greet)];
+      speakParts([nativePart(country, line), { text: line.mean }]);
+    }));
     document.getElementById("startMission").addEventListener("click", () => renderMission(country, 0));
+  }
+
+  // ── 새 형식 나라 이야기 (country-guide.js): 원어 인사 + 이야기 카드 ──
+  function guideCardsHtml(country, found) {
+    const greet = country.greet;
+    const greetHtml = greet ? `
+        <section class="greet-card" aria-label="인사 따라 하기">
+          <div class="learning-title"><span aria-hidden="true">👋</span><div><small>인사 따라 하기</small><h3>눌러서 들어 보세요</h3></div></div>
+          <div class="greet-lines">${greet.lines.map((line, i) => `<button type="button" class="greet-line" data-greet="${i}"><span class="greet-native" lang="${greet.lang}">${line.text}</span><span class="greet-say">${line.say}</span><span class="greet-mean">“${line.mean}”</span><span class="greet-play" aria-hidden="true">🔊</span></button>`).join("")}</div>
+          ${greet.note ? `<p class="greet-note">${greet.note}</p>` : ""}
+        </section>` : "";
+    const cardHtml = card => `<article class="learning-card guide-card${card.wide ? " is-wide" : ""}">
+          <div class="learning-title"><span aria-hidden="true">${card.icon}</span><div><small>${card.label}</small><h3>${card.title}</h3></div></div>
+          ${(card.lines || []).map(line => `<p>${line}</p>`).join("")}${card.list ? `<ul>${card.list.map(item => `<li>${item}</li>`).join("")}</ul>` : ""}
+          ${card.wide && !found ? `<p class="card-reward"><span aria-hidden="true">📸</span> 퀴즈를 다 맞히면 두 형제가 여기서 찍은 그림을 받아요!</p>` : ""}
+        </article>`;
+    return `${greetHtml}<div class="learning-grid">${country.cards.map(cardHtml).join("")}</div>`;
+  }
+  function guideSpeech(country) {
+    const parts = [{ text: `${country.name}. ${country.story}` }];
+    if (country.greet) {
+      parts.push({ text: "인사 따라 하기." });
+      country.greet.lines.forEach(line => parts.push(nativePart(country, line), { text: line.mean }));
+      if (country.greet.note) parts.push({ text: country.greet.note });
+    }
+    country.cards.forEach(card => parts.push({ text: `${card.label.replace(" · ", ", ")}. ${card.title}. ${[...(card.lines || []), ...(card.list || [])].join(" ")}` }));
+    return parts;
+  }
+  function shuffled(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; }
+    return copy;
+  }
+  function optionInner(option) {
+    const flagId = option[0].startsWith("flag:") ? option[0].slice(5) : null;
+    if (flagId) return `<img class="option-flag" src="./assets/flags/${flagId}.svg" alt="${option[1]}" />`;
+    return `<span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}`;
   }
 
   function renderMission(country, index = 0) {
@@ -516,9 +560,10 @@
     // 다 맞혔을 때 그림이 바로 뜨도록 퀴즈를 시작할 때 미리 받아 둔다
     if (index === 0) new Image().src = artAsset(country, "full");
     const mission = country.missions[index];
-    const optionOffset = (country.id.charCodeAt(0) + country.id.charCodeAt(1) + index) % mission.options.length;
-    const displayOptions = mission.options.map((option, originalIndex) => ({ option, originalIndex }));
-    displayOptions.push(...displayOptions.splice(0, optionOffset));
+    // 보기 순서는 볼 때마다 섞는다 (진짜/가짜처럼 순서가 정해진 문제는 그대로)
+    const ordered = mission.options.map((option, originalIndex) => ({ option, originalIndex }));
+    const displayOptions = mission.keepOrder ? ordered : shuffled(ordered);
+    const listenLine = mission.listen != null && country.greet ? country.greet.lines[mission.listen] : null;
     els.dialogContent.innerHTML = `
       <section class="mission-screen">
         <div class="mission-progress" aria-label="퀴즈 ${index + 1}/${country.missions.length}">
@@ -527,11 +572,17 @@
         </div>
         <div class="mission-badge">${mission.type}</div>
         <h2 id="dialogTitle">${mission.prompt}</h2>
+        ${listenLine ? `<button type="button" class="speak-button listen-button" id="listenAgain">🔊 인사 들어 보기</button>` : ""}
         <p class="mission-hint" id="missionHint" role="status" aria-live="polite">천천히 보고 골라도 괜찮아요.</p>
-        <div class="option-grid">${displayOptions.map(({ option, originalIndex }) => `<button type="button" class="option-button" data-option="${originalIndex}" aria-pressed="false"><span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}</button>`).join("")}</div>
+        <div class="option-grid${displayOptions.length === 2 ? " is-two" : ""}">${displayOptions.map(({ option, originalIndex }) => `<button type="button" class="option-button" data-option="${originalIndex}" aria-pressed="false">${optionInner(option)}</button>`).join("")}</div>
         <div id="missionFeedback" class="mission-feedback" role="status" aria-live="polite"></div>
       </section>`;
     els.dialogContent.querySelectorAll("[data-option]").forEach(button => button.addEventListener("click", () => answerMission(country, mission, Number(button.dataset.option), button)));
+    if (listenLine) {
+      // 뜻을 맞히는 문제라 원어만 들려준다
+      document.getElementById("listenAgain").addEventListener("click", () => speakParts([nativePart(country, listenLine)]));
+      if (state.soundOn) speakParts([nativePart(country, listenLine)]);
+    }
     focusDialogTitle();
   }
 
@@ -553,7 +604,7 @@
         renderCollection();
         showSuccess(country);
         launchConfetti();
-        if (state.soundOn) speak(`세 문제를 모두 맞혔어요. ${country.name} 도감이 열렸어요.`);
+        if (state.soundOn) speak(`${koCount(country.missions.length)} 문제를 모두 맞혔어요. ${country.name} 도감이 열렸어요.`);
       });
     } else {
       button.classList.add("is-wrong");
@@ -565,7 +616,7 @@
   }
 
   function showSuccess(country) {
-    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><figure class="success-art" data-art>${artImg(country, "full")}<span class="art-fallback" aria-hidden="true">${country.icon}</span><button type="button" class="success-zoom" data-view-art="${country.id}" aria-label="그림 크게 보기">🔍 크게 보기</button><span class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b class="${nameClass(country)}">${country.name}</b></span></figure><p class="eyebrow">3문제를 모두 맞혔어요 · ${landmarkName(country)}</p><h2 id="dialogTitle">${country.name} 그림이 도감에 쏙!</h2><p>지구본의 ${country.name} 자리에도 이 그림이 붙었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
+    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><figure class="success-art" data-art>${artImg(country, "full")}<span class="art-fallback" aria-hidden="true">${country.icon}</span><button type="button" class="success-zoom" data-view-art="${country.id}" aria-label="그림 크게 보기">🔍 크게 보기</button><span class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b class="${nameClass(country)}">${country.name}</b></span></figure><p class="eyebrow">${country.missions.length}문제를 모두 맞혔어요 · ${landmarkName(country)}</p><h2 id="dialogTitle">${country.name} 그림이 도감에 쏙!</h2><p>지구본의 ${country.name} 자리에도 이 그림이 붙었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
     bindArtButtons();
     document.getElementById("continueExplore").addEventListener("click", () => {
       const complete = state.discovered.size === countries.length;
@@ -657,15 +708,36 @@
     window.scrollTo(0, 0);
   }
 
-  function speak(text) {
+  function speak(text) { speakParts([{ text }]); }
+
+  // 여러 조각을 이어서 읽는다. lang이 있는 조각(원어 인사)은 그 나라 말 목소리로 읽고,
+  // 기기에 그 목소리가 없으면 한글 발음(say)을 한국어 목소리로 읽는다.
+  function speakParts(parts) {
     if (!("speechSynthesis" in window)) { showToast("이 기기에서는 읽어주기를 사용할 수 없어요."); return; }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "ko-KR";
-    utterance.rate = 0.88;
-    utterance.pitch = 1.08;
-    window.speechSynthesis.speak(utterance);
+    const voices = window.speechSynthesis.getVoices();
+    parts.forEach(part => {
+      const utterance = new SpeechSynthesisUtterance(part.text);
+      utterance.lang = "ko-KR";
+      utterance.rate = part.rate || 0.88;
+      utterance.pitch = 1.08;
+      if (part.lang) {
+        const voice = voiceFor(voices, part.lang);
+        if (voice) { try { utterance.voice = voice; } catch (error) { /* 목소리를 못 고르면 lang만으로 읽는다 */ } utterance.lang = voice.lang; }
+        else if (voices.length && part.say) utterance.text = part.say;
+        else utterance.lang = part.lang;
+      }
+      window.speechSynthesis.speak(utterance);
+    });
   }
+  function voiceFor(voices, lang) {
+    const norm = value => value.replace("_", "-").toLowerCase();
+    const want = norm(lang);
+    return voices.find(voice => norm(voice.lang) === want) || voices.find(voice => norm(voice.lang).split("-")[0] === want.split("-")[0]) || null;
+  }
+  function nativePart(country, line) { return { text: line.text, say: line.say, lang: country.greet.lang, rate: 0.8 }; }
+  function koCount(n) { return ["영", "한", "두", "세", "네", "다섯", "여섯", "일곱"][n] || String(n); }
+  if ("speechSynthesis" in window) window.speechSynthesis.getVoices(); // 목소리 목록을 미리 불러 둔다
 
   let toastTimer;
   function showToast(message) {
