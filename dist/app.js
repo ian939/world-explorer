@@ -5,7 +5,7 @@
   const countries = Array.isArray(window.WORLD_EXPLORER_COUNTRIES) ? window.WORLD_EXPLORER_COUNTRIES : [];
 
   const regionColors = { 아시아: "#efae42", 유럽: "#7183dc", 아프리카: "#63a95d", 아메리카: "#d96a69", 오세아니아: "#34a6a4", 남극: "#d4e8ea" };
-  const state = { discovered: loadProgress(), activeCountry: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
+  const state = { discovered: loadProgress(), activeCountry: null, pointed: null, missionIndex: 0, soundOn: false, view: "explore", globe: null, geojson: null, resizeObserver: null, returnFocus: null };
   const els = {
     globeWrap: document.getElementById("globeWrap"), globeCanvas: document.getElementById("globeCanvas"), globeLoading: document.getElementById("globeLoading"), globeError: document.getElementById("globeError"),
     progressText: document.getElementById("progressText"), progressTrack: document.getElementById("progressTrack"), progressBar: document.getElementById("progressBar"), goalText: document.getElementById("goalText"), guideTitle: document.getElementById("guideTitle"), guideMessage: document.getElementById("guideMessage"),
@@ -48,8 +48,30 @@
     return `<div class="globe-country-label"><img src="${flagAsset(country)}" width="64" height="48" alt=""><span><b>${country.name}</b><small>${found ? "도감 열림 · 눌러서 다시 보기" : "아직 회색 나라 · 눌러서 탐험"}</small></span></div>`;
   }
 
+  // 국기 목록에서 고른 나라: 지구본 위에서 노랗게 빛나며 아이가 직접 눌러 주기를 기다린다
+  const POINTED_COLOR = "#ffd23f";
+  function isPointed(target) { return Boolean(target) && state.pointed === target.id; }
+  function polygonStroke(feature) {
+    const target = targetForFeature(feature);
+    if (isPointed(target)) return "#ffffff";
+    return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
+  }
+  function polygonAlt(feature) {
+    const target = targetForFeature(feature);
+    if (isPointed(target)) return 0.06;
+    return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
+  }
+  function pointerElement(country) {
+    const element = document.createElement("div");
+    element.className = "globe-pointer";
+    element.setAttribute("aria-hidden", "true");
+    element.innerHTML = `<span class="globe-pointer-inner"><b>${country.name}</b><i>👇</i></span>`;
+    return element;
+  }
+
   function polygonColor(feature) {
     const target = targetForFeature(feature);
+    if (isPointed(target)) return POINTED_COLOR;
     if (target) return state.discovered.has(target.id) ? target.accent : "#9da6a2";
     const continent = feature.properties && feature.properties.CONTINENT;
     const names = { Asia: "아시아", Europe: "유럽", Africa: "아프리카", "North America": "아메리카", "South America": "아메리카", Oceania: "오세아니아", Antarctica: "남극" };
@@ -82,14 +104,22 @@
         .polygonsData(state.geojson.features)
         .polygonCapColor(polygonColor)
         .polygonSideColor(() => "rgba(35,69,55,.55)")
-        .polygonStrokeColor(feature => {
-          const target = targetForFeature(feature);
-          return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
-        })
-        .polygonAltitude(feature => {
-          const target = targetForFeature(feature);
-          return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
-        })
+        .polygonStrokeColor(polygonStroke)
+        .polygonAltitude(polygonAlt)
+        .polygonsTransitionDuration(300)
+        .ringsData([])
+        .ringLat("lat")
+        .ringLng("lon")
+        .ringColor(() => t => `rgba(255, 210, 63, ${1 - t})`)
+        .ringMaxRadius(7)
+        .ringPropagationSpeed(4)
+        .ringRepeatPeriod(900)
+        .ringAltitude(0.062)
+        .htmlElementsData([])
+        .htmlLat("lat")
+        .htmlLng("lon")
+        .htmlAltitude(0.07)
+        .htmlElement(pointerElement)
         .polygonLabel(feature => {
           const target = targetForFeature(feature);
           return target ? countryTooltip(target) : "";
@@ -127,7 +157,7 @@
       state.resizeObserver = new ResizeObserver(sizeGlobe);
       state.resizeObserver.observe(els.globeWrap);
       if (location.hostname === "127.0.0.1" || location.hostname === "localhost") {
-        window.__worldExplorerQA = { globe: state.globe, openCountry, countries };
+        window.__worldExplorerQA = { globe: state.globe, openCountry, pointCountry, countries, state };
       }
       els.globeLoading.hidden = true;
     } catch (error) {
@@ -141,16 +171,12 @@
     if (!state.globe || !state.geojson) return;
     state.globe
       .polygonCapColor(polygonColor)
-      .polygonStrokeColor(feature => {
-        const target = targetForFeature(feature);
-        return target && !state.discovered.has(target.id) ? "rgba(225,231,226,.92)" : "rgba(255,248,210,.78)";
-      })
-      .polygonAltitude(feature => {
-        const target = targetForFeature(feature);
-        return target ? (state.discovered.has(target.id) ? 0.026 : 0.014) : 0.007;
-      })
+      .polygonStrokeColor(polygonStroke)
+      .polygonAltitude(polygonAlt)
       .polygonsData([...state.geojson.features]);
     state.globe.pointsData([...countries]);
+    const pointed = countries.filter(country => country.id === state.pointed);
+    state.globe.ringsData(pointed).htmlElementsData(pointed);
   }
 
   function rotateBy(degrees) {
@@ -159,8 +185,37 @@
     state.globe.pointOfView({ lat: view.lat, lng: view.lng + degrees, altitude: view.altitude }, 550);
   }
 
-  function flyTo(country) {
-    if (state.globe) state.globe.pointOfView({ lat: country.lat, lng: country.lon, altitude: 1.62 }, 750);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function flyTo(country, duration = 750) {
+    if (state.globe) state.globe.pointOfView({ lat: country.lat, lng: country.lon, altitude: 1.62 }, reduceMotion.matches ? 0 : duration);
+  }
+
+  // 국기를 누르면 바로 창을 열지 않고 지구본을 돌려 위치를 보여 준다. 창은 지구본에서 그 땅을 눌러야 열린다.
+  let pointTimer;
+  function pointCountry(id, { byKeyboard = false } = {}) {
+    const country = countries.find(item => item.id === id);
+    if (!country) return;
+    if (!state.globe) { openCountry(id); return; }
+    window.clearTimeout(pointTimer);
+    state.pointed = id;
+    refreshGlobe();
+    flyTo(country, 1300);
+    document.querySelectorAll("[data-country-shortcut]").forEach(button => button.classList.toggle("is-pointed", button.dataset.countryShortcut === id));
+    els.guideTitle.textContent = "반짝이는 곳을 콕!";
+    els.guideMessage.textContent = `지구본에서 노랗게 빛나는 ${country.name} 땅을 손가락으로 콕!`;
+    const rect = els.globeWrap.getBoundingClientRect();
+    if (rect.top < 0 || rect.bottom > window.innerHeight) els.globeWrap.scrollIntoView({ block: "center", behavior: reduceMotion.matches ? "auto" : "smooth" });
+    if (state.soundOn) speak(`${country.name}, 여기 있어요. 반짝이는 곳을 눌러 보세요.`);
+    // 키보드로는 지구본을 누를 수 없으므로 돌아간 뒤 창을 열어 준다
+    if (byKeyboard) pointTimer = window.setTimeout(() => openCountry(id, { skipFly: true }), reduceMotion.matches ? 0 : 1400);
+  }
+
+  function clearPointed() {
+    window.clearTimeout(pointTimer);
+    if (!state.pointed) return;
+    state.pointed = null;
+    document.querySelectorAll("[data-country-shortcut].is-pointed").forEach(button => button.classList.remove("is-pointed"));
+    refreshGlobe();
   }
 
   function renderProgress() {
@@ -235,6 +290,7 @@
   function openCountry(id, options = {}) {
     const country = countries.find(item => item.id === id);
     if (!country) return;
+    clearPointed();
     state.activeCountry = country;
     state.missionIndex = 0;
     state.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -433,7 +489,7 @@
   function bindEvents() {
     document.getElementById("rotateLeft").addEventListener("click", () => rotateBy(-35));
     document.getElementById("rotateRight").addEventListener("click", () => rotateBy(35));
-    document.querySelectorAll("[data-country-shortcut]").forEach(button => button.addEventListener("click", () => openCountry(button.dataset.countryShortcut)));
+    document.querySelectorAll("[data-country-shortcut]").forEach(button => button.addEventListener("click", event => pointCountry(button.dataset.countryShortcut, { byKeyboard: event.detail === 0 })));
     document.getElementById("retryGlobe").addEventListener("click", initGlobe);
     document.querySelectorAll(".view-tab").forEach(tab => tab.addEventListener("click", () => setView(tab.dataset.view)));
     document.getElementById("closeDialog").addEventListener("click", closeCountryDialog);
@@ -515,6 +571,7 @@
   function setupUpdateCheck() {
     els.updateButton = document.getElementById("updateButton");
     document.getElementById("appVersion").textContent = `v${APP_VERSION}`;
+    document.getElementById("guardianVersion").textContent = `버전 v${APP_VERSION}`;
     els.updateButton.addEventListener("click", () => location.replace(`${location.pathname}?v=${Date.now()}`));
     document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
     window.addEventListener("online", checkUpdate);
