@@ -639,6 +639,8 @@
   }
 
   // ── 새 형식 나라 이야기 (country-guide.js): 원어 인사 + 이야기 카드 ──
+  // "하늘·땅·물·불"처럼 가운뎃점으로 이은 말은 중간에서 줄이 끊기지 않게 한 덩어리로
+  function keepDotted(text) { return text.replace(/[가-힣A-Za-z0-9]+(?:·[가-힣A-Za-z0-9]+)+/g, match => `<span class="nowrap">${match}</span>`); }
   function guideCardsHtml(country, found) {
     const greet = country.greet;
     const greetHtml = greet ? `
@@ -649,7 +651,8 @@
         </section>` : "";
     const cardHtml = card => `<article class="learning-card guide-card${card.wide ? " is-wide" : ""}">
           <div class="learning-title"><span aria-hidden="true">${card.icon}</span><div><small>${card.label}</small><h3>${card.title}</h3></div></div>
-          ${(card.lines || []).map(line => `<p>${line}</p>`).join("")}${card.list ? `<ul>${card.list.map(item => `<li>${item}</li>`).join("")}</ul>` : ""}
+          ${card.label === "국기 속 비밀" ? `<figure class="guide-flag"><img src="${flagAsset(country)}" width="640" height="480" alt="${country.name} 국기" /></figure>` : ""}
+          ${(card.lines || []).map(line => `<p>${keepDotted(line)}</p>`).join("")}${card.list ? `<ul>${card.list.map(item => `<li>${keepDotted(item)}</li>`).join("")}</ul>` : ""}
           ${card.wide && !found ? `<p class="card-reward"><span aria-hidden="true">📸</span> 퀴즈를 다 맞히면 두 형제가 여기서 찍은 그림을 받아요!</p>` : ""}
         </article>`;
     return `${greetHtml}<div class="learning-grid">${country.cards.map(cardHtml).join("")}</div>`;

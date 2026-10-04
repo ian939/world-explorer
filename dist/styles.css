@@ -504,6 +504,18 @@ button:active { transform: translateY(2px) scale(.98); }
 .memory .card-flag img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 4px; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
 button.country-card:hover .memory, button.country-card:focus-visible .memory { transform: rotate(0deg) scale(1.04); }
 
+.nowrap { white-space: nowrap; }
+
+/* 국기 속 비밀 카드: 설명하는 국기를 크게 */
+.guide-flag { margin: 4px 0 12px; }
+.guide-flag img {
+  display: block;
+  width: min(100%, 220px); height: auto; aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.12), 0 6px 14px rgba(21,50,92,.15);
+}
+
 /* 그림을 크게 볼 수 있다는 표시 — 그림을 덮지 않게 오른쪽 아래 모서리에 */
 .zoom-chip {
   position: absolute; right: 6%; bottom: 5%;
