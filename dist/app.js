@@ -87,7 +87,7 @@
         .onPolygonClick(feature => {
           const target = targetForFeature(feature);
           if (target) openCountry(target.id);
-           else showToast("회색으로 표시된 12개 탐험 나라를 찾아 눌러 보자!");
+          else showToast(`회색으로 표시된 ${countries.length}개 탐험 나라를 찾아 눌러 보자!`);
         })
         .onPolygonHover(feature => { els.globeCanvas.style.cursor = targetForFeature(feature) ? "pointer" : "grab"; })
         .pointsData(countries)
@@ -159,6 +159,7 @@
     els.progressText.textContent = `${count} / ${total}`;
     els.collectionCount.textContent = `${count} / ${total}`;
     els.progressBar.style.transform = `scaleX(${count / total})`;
+    els.progressTrack.setAttribute("aria-valuemax", String(total));
     els.progressTrack.setAttribute("aria-valuenow", String(count));
     els.progressTrack.setAttribute("aria-valuetext", `${total}개 나라 중 ${count}개 도감 완성`);
     document.querySelectorAll("[data-country-shortcut]").forEach(button => {
@@ -181,6 +182,7 @@
 
   function renderCountryShortcuts() {
     const rail = document.getElementById("countryShortcutRail");
+    rail.setAttribute("aria-label", `${countries.length}개 나라 국기 목록`);
     rail.innerHTML = countries.map(country => `
       <button type="button" data-country-shortcut="${country.id}" aria-label="${country.name} 아직 잠김 탐험하기">
         <img src="${flagAsset(country)}" width="64" height="48" alt="" aria-hidden="true" />
@@ -190,6 +192,7 @@
 
   function renderCollection() {
     els.collectionGrid.classList.toggle("is-duo", countries.length === 2);
+    els.collectionGrid.classList.toggle("is-catalog", countries.length > 12);
     els.collectionGrid.innerHTML = countries.map(country => {
       const found = state.discovered.has(country.id);
       if (found) {
@@ -240,6 +243,9 @@
   function renderMission(country, index = 0) {
     state.missionIndex = index;
     const mission = country.missions[index];
+    const optionOffset = (country.id.charCodeAt(0) + country.id.charCodeAt(1) + index) % mission.options.length;
+    const displayOptions = mission.options.map((option, originalIndex) => ({ option, originalIndex }));
+    displayOptions.push(...displayOptions.splice(0, optionOffset));
     els.dialogContent.innerHTML = `
       <section class="mission-screen">
         <div class="mission-progress" aria-label="퀴즈 ${index + 1}/${country.missions.length}">
@@ -249,7 +255,7 @@
         <div class="mission-badge">${mission.type}</div>
         <h2 id="dialogTitle">${mission.prompt}</h2>
         <p class="mission-hint" id="missionHint" role="status" aria-live="polite">천천히 보고 골라도 괜찮아요.</p>
-        <div class="option-grid">${mission.options.map((option, optionIndex) => `<button type="button" class="option-button" data-option="${optionIndex}" aria-pressed="false"><span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}</button>`).join("")}</div>
+        <div class="option-grid">${displayOptions.map(({ option, originalIndex }) => `<button type="button" class="option-button" data-option="${originalIndex}" aria-pressed="false"><span class="option-emoji" aria-hidden="true">${option[0]}</span>${option[1]}</button>`).join("")}</div>
         <div id="missionFeedback" class="mission-feedback" role="status" aria-live="polite"></div>
       </section>`;
     els.dialogContent.querySelectorAll("[data-option]").forEach(button => button.addEventListener("click", () => answerMission(country, mission, Number(button.dataset.option), button)));
@@ -299,7 +305,7 @@
     setBackgroundInert(false);
     document.body.style.overflow = "";
     els.guideTitle.textContent = state.discovered.size === countries.length ? "세계지도 완성!" : "다음에는 어디로 갈까?";
-    els.guideMessage.textContent = state.discovered.size === countries.length ? "도감에서 12개 나라 이야기를 다시 볼 수 있어." : "지구본을 다시 돌려 아직 회색인 나라를 찾아보자!";
+    els.guideMessage.textContent = state.discovered.size === countries.length ? `도감에서 ${countries.length}개 나라 이야기를 다시 볼 수 있어.` : "지구본을 다시 돌려 아직 회색인 나라를 찾아보자!";
     restoreFocus();
   }
 

@@ -284,6 +284,12 @@ button:active { transform: translateY(2px) scale(.98); }
 .country-card:nth-child(10) { left: 11%; top: 66%; transform: rotate(4deg); }
 .country-card:nth-child(11) { left: 76%; top: 66%; transform: rotate(-3deg); }
 .country-card:nth-child(12) { left: 24%; top: 3%; transform: rotate(4deg); }
+.collection-grid.is-catalog { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 26px 16px; min-height: 0; padding: 8px 3px 18px; }
+.collection-grid.is-catalog .country-card:nth-child(n) { position: relative; left: auto; top: auto; width: 100%; min-height: 148px; transform: rotate(-1.2deg); }
+.collection-grid.is-catalog .country-card:nth-child(3n) { transform: rotate(1.4deg); }
+.collection-grid.is-catalog .country-card:nth-child(4n) { transform: rotate(-2deg); }
+.collection-grid.is-catalog .country-card:nth-child(5n) { transform: rotate(2deg); }
+.collection-grid.is-catalog .country-card h3 { word-break: keep-all; }
 .country-card-inner { position: relative; width: 100%; min-height: 125px; padding: 46px 12px 10px; border: 3px solid rgba(61,69,61,.21); background: color-mix(in srgb, var(--card-color, #e7dcc2) 72%, #fff); box-shadow: 6px 8px 0 rgba(76,57,30,.18), 0 13px 22px rgba(63,52,36,.13); clip-path: polygon(3% 1%, 97% 3%, 100% 94%, 5% 100%, 0 8%); transition: transform .18s ease; }
 button.country-card:hover .country-card-inner, button.country-card:focus-visible .country-card-inner { transform: translateY(-7px) scale(1.025); }
 .card-icon { position: absolute; z-index: 2; top: -11px; left: 50%; font-size: 69px; line-height: 1; filter: drop-shadow(3px 5px 1px rgba(40,37,31,.2)); transform: translateX(-50%); }
@@ -423,6 +429,7 @@ button.country-card:hover .country-card-inner, button.country-card:focus-visible
   .atlas-spread { width: 100%; min-height: 890px; padding: 28px 13px; }
   .atlas-spread::after { display: none; }
   .collection-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: none; gap: 18px 8px; transform: none; min-height: 0; }
+  .collection-grid.is-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 8px; padding-inline: 0; }
   .country-card { position: relative; width: auto; }
   .country-card:nth-child(n) { left: auto; top: auto; grid-area: auto; transform: rotate(var(--tilt, -1deg)); min-height: 126px; }
   .country-card:nth-child(2n) { --tilt: 2deg; }

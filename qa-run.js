@@ -29,10 +29,10 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   assert(await page.locator('#dialogTitle').textContent() === country.name, `${country.name} dialog missing`);
   assert(await page.locator('.country-quickfacts div').count() === 3, `${country.name} quick facts should be 3`);
   assert(await page.locator('.learning-card').count() === 4, `${country.name} learning cards should be 4`);
-  await page.getByRole('button', { name: '3문제 퀴즈 시작' }).click();
+  await page.getByRole('button', { name: '3문제 퀴즈 시작' }).click({ noWaitAfter: true });
   for (const answer of answers) {
-    await page.locator(`[data-option="${answer}"]`).click();
-    await page.locator('#nextMission').click();
+    await page.locator(`[data-option="${answer}"]`).click({ noWaitAfter: true });
+    await page.locator('#nextMission').click({ noWaitAfter: true });
   }
   await page.locator('.success-screen').waitFor();
   return location;
@@ -42,6 +42,7 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1194, height: 834 }, hasTouch: true });
   const page = await context.newPage();
+  page.setDefaultTimeout(10000);
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
@@ -53,9 +54,11 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
       const properties = feature.properties || {};
       return [properties.ISO_A3, properties.ADM0_A3, properties.GU_A3, properties.SOV_A3].find(value => value && value !== '-99');
     }));
-    const flagChecks = await Promise.all(countries.map(async country => ({
-      id: country.id,
-      ok: (await fetch(`./assets/flags/${country.id}.svg`)).ok
+    const flagChecks = await Promise.all(countries.map(country => new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => resolve({ id: country.id, ok: image.naturalWidth > 0 });
+      image.onerror = () => resolve({ id: country.id, ok: false });
+      image.src = `./assets/flags/${country.id}.svg`;
     })));
     return {
       count: countries.length,
@@ -65,7 +68,6 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
       missingFlags: flagChecks.filter(flag => !flag.ok).map(flag => flag.id)
     };
   });
-
   for (const countryId of await page.evaluate(() => window.__worldExplorerQA.countries.map(country => country.id))) {
     await page.evaluate(id => window.__worldExplorerQA.openCountry(id), countryId);
     await page.locator('#dialogTitle').waitFor();
@@ -146,15 +148,19 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   result.collectionCards = await page.locator('[data-open-country]').count();
   result.collectionTotal = await page.locator('.country-card').count();
   result.collectionLocked = await page.locator('.country-card.is-locked').count();
+  await page.locator('.country-card img').evaluateAll(images => Promise.all(images.map(image => image.complete ? image.decode().catch(() => {}) : new Promise(resolve => {
+    image.addEventListener('load', resolve, { once: true });
+    image.addEventListener('error', resolve, { once: true });
+  }))));
   await page.screenshot({ path: 'test-results/ipad-landscape-complete.png', fullPage: true });
 
   const persistedPage = await context.newPage();
   await persistedPage.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
   result.progressPersisted = await persistedPage.locator('#progressText').textContent();
   result.errors = errors;
-  assert(result.progressStart === '0 / 12', 'fresh progress should be 0 / 12');
-  assert(result.countryAudit.count === 12, 'country dataset should include 12 countries');
-  assert(result.countryAudit.shortcutCount === 12, 'all 12 countries need a flag shortcut');
+  assert(result.progressStart === '0 / 36', 'fresh progress should be 0 / 36');
+  assert(result.countryAudit.count === 36, 'country dataset should include 36 countries');
+  assert(result.countryAudit.shortcutCount === 36, 'all 36 countries need a flag shortcut');
   assert(result.countryAudit.invalidContent.length === 0, `invalid country content: ${result.countryAudit.invalidContent.join(', ')}`);
   assert(result.countryAudit.missingPolygons.length === 0, `missing country polygons: ${result.countryAudit.missingPolygons.join(', ')}`);
   assert(result.countryAudit.missingFlags.length === 0, `missing country flags: ${result.countryAudit.missingFlags.join(', ')}`);
@@ -166,11 +172,11 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   assert(Object.values(result.kidGuardResults).every(Boolean), 'kid-safe gesture, selection, drag, context-menu, and clipboard guards should prevent child-surface actions');
   assert(result.adultPasteAllowed, 'adult controls should preserve native clipboard behavior');
   assert(result.minimumTarget >= 44, `visible targets should be at least 44px; received ${result.minimumTarget}`);
-  assert(result.progressComplete === '3 / 12', 'three completed journeys should update progress');
-  assert(result.progressPersisted === '3 / 12', 'progress should persist');
+  assert(result.progressComplete === '3 / 36', 'three completed journeys should update progress');
+  assert(result.progressPersisted === '3 / 36', 'progress should persist');
   assert(result.collectionCards === 3, 'three atlas cards should unlock');
-  assert(result.collectionTotal === 12, 'atlas should render all 12 countries');
-  assert(result.collectionLocked === 9, 'remaining nine atlas cards should stay locked');
+  assert(result.collectionTotal === 36, 'atlas should render all 36 countries');
+  assert(result.collectionLocked === 33, 'remaining 33 atlas cards should stay locked');
   assert(errors.length === 0, `page errors: ${errors.join('; ')}`);
   console.log(JSON.stringify(result, null, 2));
   await browser.close();
