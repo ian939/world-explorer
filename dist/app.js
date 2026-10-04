@@ -358,7 +358,7 @@
         if (cy > (sy + ty) / 2) { cx = (sx + tx) / 2 + dy / len * bend; cy = (sy + ty) / 2 - dx / len * bend; } // 위로 휘게
         const d = `M${n(sx)} ${n(sy)}Q${n(cx)} ${n(cy)} ${n(tx)} ${n(ty)}`;
         const route = `<path class="map-route" d="${d}" style="stroke-width:${n(3 * scale)};stroke-dasharray:${n(9 * scale)} ${n(7 * scale)}" />
-          <g class="map-plane"><path d="M15 0L-5-4-9-13-13-13-10-4-15-3-15 3-10 4-13 13-9 13-5 4Z" transform="scale(${(scale * 1.3).toFixed(2)})" />
+          <g class="map-plane"><path d="M15 0L-5-4-9-13-13-13-10-4-15-3-15 3-10 4-13 13-9 13-5 4Z" transform="scale(${(scale * 0.65).toFixed(2)})" />
             <animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto" path="${d}" /></g>`;
         routeSvg = `<g class="map-route-group">${route}</g>` + (wrap ? `<g class="map-route-group" transform="translate(${wrap} 0)">${route}</g>` : "");
       }
