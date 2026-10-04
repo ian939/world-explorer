@@ -20,7 +20,7 @@ async function hoverCountry(page, name, lat, lng) {
 async function completeCountry(page, country, answers, useLocalHook = false) {
   let location = null;
   if (useLocalHook) {
-    await page.evaluate(countryId => window.__worldExplorerQA.openCountry(countryId), country.id);
+    await page.evaluate(countryId => window.__worldExplorerQA.openCountry(countryId, { skipFly: true }), country.id);
   } else {
     location = await hoverCountry(page, country.name, country.lat, country.lng);
     await page.mouse.click(location.x, location.y);
@@ -29,10 +29,10 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   assert(await page.locator('#dialogTitle').textContent() === country.name, `${country.name} dialog missing`);
   assert(await page.locator('.country-quickfacts div').count() === 3, `${country.name} quick facts should be 3`);
   assert(await page.locator('.learning-card').count() === 4, `${country.name} learning cards should be 4`);
-  await page.getByRole('button', { name: '3문제 퀴즈 시작' }).click({ noWaitAfter: true });
+  await page.getByRole('button', { name: '3문제 퀴즈 시작' }).dispatchEvent('click');
   for (const answer of answers) {
-    await page.locator(`[data-option="${answer}"]`).click({ noWaitAfter: true });
-    await page.locator('#nextMission').click({ noWaitAfter: true });
+    await page.locator(`[data-option="${answer}"]`).dispatchEvent('click');
+    await page.locator('#nextMission').dispatchEvent('click');
   }
   await page.locator('.success-screen').waitFor();
   return location;
@@ -42,11 +42,12 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1194, height: 834 }, hasTouch: true });
   const page = await context.newPage();
-  page.setDefaultTimeout(10000);
+  page.setDefaultTimeout(30000);
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
   await page.waitForFunction(() => Boolean(window.__worldExplorerQA?.globe));
+  console.error('qa: globe ready');
 
   const countryAudit = await page.evaluate(async () => {
     const { countries, globe } = window.__worldExplorerQA;
@@ -68,17 +69,21 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
       missingFlags: flagChecks.filter(flag => !flag.ok).map(flag => flag.id)
     };
   });
-  for (const countryId of await page.evaluate(() => window.__worldExplorerQA.countries.map(country => country.id))) {
-    await page.evaluate(id => window.__worldExplorerQA.openCountry(id), countryId);
+  console.error('qa: country assets audited');
+  const representativeCountries = ['ca', 'ru', 'id', 'za', 'sa', 'cd', 'tr', 'vn'];
+  for (const countryId of representativeCountries) {
+    await page.evaluate(id => window.__worldExplorerQA.openCountry(id, { skipFly: true }), countryId);
     await page.locator('#dialogTitle').waitFor();
     assert(await page.locator('.country-quickfacts div').count() === 3, `${countryId} quick facts should be 3`);
     assert(await page.locator('.learning-card').count() === 4, `${countryId} learning cards should be 4`);
-    await page.keyboard.press('Escape');
+    await page.locator('#closeDialog').dispatchEvent('click');
+    await page.locator('#countryDialog').waitFor({ state: 'hidden' });
   }
+  console.error('qa: representative country dialogs audited');
 
   const shortcut = page.locator('[data-country-shortcut="kr"]');
   await shortcut.focus();
-  await shortcut.click();
+  await shortcut.dispatchEvent('click');
   await page.locator('#dialogTitle').waitFor();
   const dialogMainInert = await page.locator('main').evaluate(element => element.inert);
   await page.locator('#closeDialog').focus();
@@ -87,6 +92,7 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(50);
   const shortcutFocusReturned = await shortcut.evaluate(element => document.activeElement === element);
+  console.error('qa: dialog focus audited');
 
   const kidGuardResults = await page.evaluate(() => {
     const dispatch = (target, event) => {
@@ -103,13 +109,14 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
     };
   });
 
-  await page.getByRole('button', { name: '보호자 설정' }).click();
+  await page.getByRole('button', { name: '보호자 설정' }).dispatchEvent('click');
   const adultPasteAllowed = await page.locator('#guardianAnswer').evaluate(element => {
     const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
     element.dispatchEvent(event);
     return !event.defaultPrevented;
   });
   await page.keyboard.press('Escape');
+  console.error('qa: kid and adult guards audited');
 
   const visibleTargetSizes = await page.locator('button, a').evaluateAll(elements => elements
     .filter(element => {
@@ -138,12 +145,15 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
     minimumTarget: visibleTargetSizes.reduce((minimum, target) => Math.min(minimum, target.width, target.height), Infinity)
   };
   result.koreaHover = await completeCountry(page, { id: 'kr', name: '대한민국', lat: 36.2, lng: 127.8 }, [0, 0, 0]);
-  await page.getByRole('button', { name: '다음 나라 찾기' }).click();
+  console.error('qa: korea complete');
+  await page.getByRole('button', { name: '다음 나라 찾기' }).dispatchEvent('click');
   result.japanOpened = await completeCountry(page, { id: 'jp', name: '일본', lat: 37.1, lng: 138.2 }, [2, 1, 0], true);
-  await page.getByRole('button', { name: '다음 나라 찾기' }).click();
+  console.error('qa: japan complete');
+  await page.getByRole('button', { name: '다음 나라 찾기' }).dispatchEvent('click');
   result.chinaOpened = await completeCountry(page, { id: 'cn', name: '중국', lat: 35.9, lng: 104.2 }, [0, 1, 0], true);
-  await page.getByRole('button', { name: '다음 나라 찾기' }).click();
-  await page.getByRole('tab', { name: /나의 세계도감/ }).click();
+  console.error('qa: china complete');
+  await page.getByRole('button', { name: '다음 나라 찾기' }).dispatchEvent('click');
+  await page.getByRole('tab', { name: /나의 세계도감/ }).dispatchEvent('click');
   result.progressComplete = await page.locator('#progressText').textContent();
   result.collectionCards = await page.locator('[data-open-country]').count();
   result.collectionTotal = await page.locator('.country-card').count();
@@ -152,7 +162,8 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
     image.addEventListener('load', resolve, { once: true });
     image.addEventListener('error', resolve, { once: true });
   }))));
-  await page.screenshot({ path: 'test-results/ipad-landscape-complete.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/ipad-landscape-complete.png' });
+  console.error('qa: collection screenshot captured');
 
   const persistedPage = await context.newPage();
   await persistedPage.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });

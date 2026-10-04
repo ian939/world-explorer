@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#17366f" />
+    <meta name="theme-color" content="#bfe2f0" />
     <meta name="description" content="지구본을 돌리고 나라를 발견하는 7~8세 어린이용 세계 탐험 게임" />
     <title>빙글빙글 세계탐험대</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231b4fa3'/%3E%3Ccircle cx='32' cy='30' r='21' fill='%232c9ed6'/%3E%3Cpath d='M15 28c8-10 17-10 22-4 5 5 9 2 13 7-3 5-10 4-13 9-5 6-14 3-18-1-3-4-5-7-4-11Z' fill='%23f0c54d'/%3E%3C/svg%3E" />
@@ -15,13 +15,15 @@
     <a class="skip-link" href="#mainContent">탐험 화면으로 바로가기</a>
     <div id="app" class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#exploreView" aria-label="빙글빙글세계탐험대 홈">
-          <span class="brand-compass" aria-hidden="true">✦</span>
-          <span><strong>빙글빙글</strong><b>세계탐험대</b></span>
+        <a class="brand" href="#exploreView" aria-label="빙글빙글 세계탐험대 홈">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-name"><small>빙글빙글</small>세계탐험대</span>
         </a>
         <div class="top-actions">
           <div class="passport-progress" aria-label="나라 발견 진행률" aria-live="polite">
-            <span aria-hidden="true">★</span><strong id="progressText">0 / 36</strong><small>발견</small>
+            <span class="passport-stamp-icon" aria-hidden="true">★</span>
+            <span class="passport-numbers"><strong id="progressText">0 / 36</strong><small id="goalText">나라 1개 발견하기</small></span>
+            <div id="progressTrack" class="progress-track" role="progressbar" aria-label="도감 완성률" aria-valuemin="0" aria-valuemax="36" aria-valuenow="0"><i id="progressBar"></i></div>
           </div>
           <button id="soundButton" class="round-button" type="button" aria-label="소리 켜기" aria-pressed="false">🔇</button>
           <button id="guardianButton" class="guardian-button" type="button" data-adult-control aria-label="보호자 설정">보호자</button>
@@ -30,25 +32,24 @@
 
       <main id="mainContent" tabindex="-1">
         <section id="exploreView" class="view-panel explore-view" aria-labelledby="exploreTitle">
-          <div class="paper-cloud cloud-one" aria-hidden="true"></div>
-          <div class="paper-cloud cloud-two" aria-hidden="true"></div>
-          <div class="explore-copy">
-            <p class="eyebrow">오늘의 세계 탐험</p>
+          <aside class="atlas-panel" aria-labelledby="exploreTitle">
             <h1 id="exploreTitle">지구본을 돌려<br /><em>나라를 찾아봐!</em></h1>
-            <p class="drag-tip"><span aria-hidden="true">☝️</span> 돌리고, 나라를 눌러봐</p>
-            <div class="map-status-key" aria-label="나라 도감 상태 안내">
-              <span><i class="key-land is-locked" aria-hidden="true"></i><b>회색 나라</b> 아직 잠김</span>
-              <span><i class="key-land is-open" aria-hidden="true"></i><b>색깔 나라</b> 도감 열림</span>
-            </div>
+            <ul class="map-status-key" aria-label="지구본 색깔 안내">
+              <li><i class="key-land is-locked" aria-hidden="true"></i>회색 = 아직 못 간 나라</li>
+              <li><i class="key-land is-open" aria-hidden="true"></i>색깔 = 도장 받은 나라</li>
+            </ul>
             <div class="country-shortcuts" aria-labelledby="shortcutTitle">
-              <strong id="shortcutTitle">국기로 바로 탐험</strong>
+              <div class="shortcut-head">
+                <h2 id="shortcutTitle">국기로 바로 가기</h2>
+                <div id="continentJump" class="continent-jump" aria-label="대륙으로 이동"></div>
+              </div>
               <div id="countryShortcutRail" class="country-shortcut-rail" aria-label="36개 나라 국기 목록"></div>
             </div>
-          </div>
+          </aside>
 
           <div class="globe-zone">
             <div id="globeWrap" class="globe-wrap" aria-label="돌려서 나라를 찾는 3차원 지구본" aria-describedby="globeHelp">
-              <p id="globeHelp" class="visually-hidden">한 손가락으로 지구본을 돌리세요. 확대는 막혀 있습니다. 나라를 바로 선택하려면 국기로 바로 탐험 버튼을 사용할 수 있습니다.</p>
+              <p id="globeHelp" class="visually-hidden">한 손가락으로 지구본을 돌리세요. 확대는 막혀 있습니다. 나라를 바로 선택하려면 국기로 바로 가기 버튼을 사용할 수 있습니다.</p>
               <div id="globeCanvas" class="globe-canvas"></div>
               <div id="globeLoading" class="globe-loading" role="status"><span></span>지구본을 펼치는 중…</div>
               <div id="globeError" class="globe-error" hidden>
@@ -58,37 +59,30 @@
             </div>
             <div class="globe-controls" aria-label="지구본 돌리기">
               <button id="rotateLeft" type="button" aria-label="지구본을 왼쪽으로 돌리기">‹</button>
-              <span>돌려서 발견!</span>
+              <span>손가락으로 돌려 봐</span>
               <button id="rotateRight" type="button" aria-label="지구본을 오른쪽으로 돌리기">›</button>
             </div>
-          </div>
 
-          <aside class="guide-dock" aria-live="polite">
-            <img id="mascotImage" src="./assets/compass-mascot.png" width="1254" height="1254" alt="나침반 탐험대장 콩이" hidden />
-            <div id="mascotFallback" class="mascot-fallback" aria-hidden="true">🧭</div>
-            <div class="speech-bubble">
-              <strong id="guideTitle">어디로 떠나볼까?</strong>
-              <p id="guideMessage">지구본에서 회색 나라를 누르거나 국기 목록에서 골라 봐!</p>
-            </div>
-          </aside>
-
-          <div class="progress-scroll" aria-label="다음 목표">
-            <span>다음 목표</span><strong id="goalText">나라 1개 발견하기</strong>
-            <div id="progressTrack" class="progress-track" role="progressbar" aria-label="도감 완성률" aria-valuemin="0" aria-valuemax="36" aria-valuenow="0"><i id="progressBar"></i></div>
+            <aside class="guide-dock" aria-live="polite">
+              <div class="speech-bubble">
+                <strong id="guideTitle">어디로 떠나볼까?</strong>
+                <p id="guideMessage">회색 나라를 누르거나 국기 목록에서 골라 봐!</p>
+              </div>
+              <img id="mascotImage" src="./assets/compass-mascot.png" width="1254" height="1254" alt="나침반 탐험대장 콩이" hidden />
+              <div id="mascotFallback" class="mascot-fallback" aria-hidden="true">🧭</div>
+            </aside>
           </div>
         </section>
 
         <section id="collectionView" class="view-panel collection-view" aria-labelledby="collectionTitle" hidden>
-          <div class="atlas-heading">
-            <p class="eyebrow">내가 모은 세계 이야기</p>
-            <h1 id="collectionTitle">나의 세계도감</h1>
-            <p>아시아부터 오세아니아까지 36개 나라의 도감을 완성해요.</p>
-            <div class="collection-count"><span aria-hidden="true">★</span><strong id="collectionCount">0 / 36</strong></div>
-          </div>
-          <div class="atlas-spread" aria-label="세계 나라 수집 지도">
-            <div class="atlas-lines" aria-hidden="true"></div>
-            <div id="collectionGrid" class="collection-grid"></div>
-          </div>
+          <header class="atlas-heading">
+            <div>
+              <h1 id="collectionTitle">나의 세계도감</h1>
+              <p>퀴즈 3개를 다 풀면 그 나라 도장을 받아요.</p>
+            </div>
+            <div class="collection-count"><span aria-hidden="true">★</span><strong id="collectionCount">0 / 36</strong><small>도장</small></div>
+          </header>
+          <div id="collectionGrid" class="collection-grid" aria-label="대륙별 나라 도장"></div>
         </section>
       </main>
 
