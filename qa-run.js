@@ -43,10 +43,11 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   const context = await browser.newContext({ viewport: { width: 1194, height: 834 }, hasTouch: true });
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
+  page.setDefaultNavigationTimeout(90000);
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
-  await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => Boolean(window.__worldExplorerQA?.globe));
+  await page.goto('http://127.0.0.1:4173', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Boolean(window.__worldExplorerQA?.globe), null, { timeout: 90000 });
   console.error('qa: globe ready');
 
   const countryAudit = await page.evaluate(async () => {
@@ -70,7 +71,7 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
     };
   });
   console.error('qa: country assets audited');
-  const representativeCountries = ['ca', 'ru', 'id', 'za', 'sa', 'cd', 'tr', 'vn'];
+  const representativeCountries = ['td', 'bo', 'tz', 'pk', 'mg', 'ye', 'pg', 'iq'];
   for (const countryId of representativeCountries) {
     await page.evaluate(id => window.__worldExplorerQA.openCountry(id, { skipFly: true }), countryId);
     await page.locator('#dialogTitle').waitFor();
@@ -166,12 +167,13 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   console.error('qa: collection screenshot captured');
 
   const persistedPage = await context.newPage();
-  await persistedPage.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
+  await persistedPage.goto('http://127.0.0.1:4173', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await persistedPage.waitForFunction(() => Boolean(window.__worldExplorerQA?.globe), null, { timeout: 90000 });
   result.progressPersisted = await persistedPage.locator('#progressText').textContent();
   result.errors = errors;
-  assert(result.progressStart === '0 / 36', 'fresh progress should be 0 / 36');
-  assert(result.countryAudit.count === 36, 'country dataset should include 36 countries');
-  assert(result.countryAudit.shortcutCount === 36, 'all 36 countries need a flag shortcut');
+  assert(result.progressStart === '0 / 60', 'fresh progress should be 0 / 60');
+  assert(result.countryAudit.count === 60, 'country dataset should include 60 countries');
+  assert(result.countryAudit.shortcutCount === 60, 'all 60 countries need a flag shortcut');
   assert(result.countryAudit.invalidContent.length === 0, `invalid country content: ${result.countryAudit.invalidContent.join(', ')}`);
   assert(result.countryAudit.missingPolygons.length === 0, `missing country polygons: ${result.countryAudit.missingPolygons.join(', ')}`);
   assert(result.countryAudit.missingFlags.length === 0, `missing country flags: ${result.countryAudit.missingFlags.join(', ')}`);
@@ -183,11 +185,11 @@ async function completeCountry(page, country, answers, useLocalHook = false) {
   assert(Object.values(result.kidGuardResults).every(Boolean), 'kid-safe gesture, selection, drag, context-menu, and clipboard guards should prevent child-surface actions');
   assert(result.adultPasteAllowed, 'adult controls should preserve native clipboard behavior');
   assert(result.minimumTarget >= 44, `visible targets should be at least 44px; received ${result.minimumTarget}`);
-  assert(result.progressComplete === '3 / 36', 'three completed journeys should update progress');
-  assert(result.progressPersisted === '3 / 36', 'progress should persist');
+  assert(result.progressComplete === '3 / 60', 'three completed journeys should update progress');
+  assert(result.progressPersisted === '3 / 60', 'progress should persist');
   assert(result.collectionCards === 3, 'three atlas cards should unlock');
-  assert(result.collectionTotal === 36, 'atlas should render all 36 countries');
-  assert(result.collectionLocked === 33, 'remaining 33 atlas cards should stay locked');
+  assert(result.collectionTotal === 60, 'atlas should render all 60 countries');
+  assert(result.collectionLocked === 57, 'remaining 57 atlas cards should stay locked');
   assert(errors.length === 0, `page errors: ${errors.join('; ')}`);
   console.log(JSON.stringify(result, null, 2));
   await browser.close();

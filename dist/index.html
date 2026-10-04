@@ -22,8 +22,8 @@
         <div class="top-actions">
           <div class="passport-progress" aria-label="나라 발견 진행률" aria-live="polite">
             <span class="passport-stamp-icon" aria-hidden="true">★</span>
-            <span class="passport-numbers"><strong id="progressText">0 / 36</strong><small id="goalText">나라 1개 발견하기</small></span>
-            <div id="progressTrack" class="progress-track" role="progressbar" aria-label="도감 완성률" aria-valuemin="0" aria-valuemax="36" aria-valuenow="0"><i id="progressBar"></i></div>
+            <span class="passport-numbers"><strong id="progressText">0 / 60</strong><small id="goalText">나라 1개 발견하기</small></span>
+            <div id="progressTrack" class="progress-track" role="progressbar" aria-label="도감 완성률" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0"><i id="progressBar"></i></div>
           </div>
           <button id="soundButton" class="round-button" type="button" aria-label="소리 켜기" aria-pressed="false">🔇</button>
           <button id="guardianButton" class="guardian-button" type="button" data-adult-control aria-label="보호자 설정">보호자</button>
@@ -33,7 +33,7 @@
       <main id="mainContent" tabindex="-1">
         <section id="exploreView" class="view-panel explore-view" aria-labelledby="exploreTitle">
           <aside class="atlas-panel" aria-labelledby="exploreTitle">
-            <h1 id="exploreTitle">지구본을 돌려<br /><em>나라를 찾아봐!</em></h1>
+            <h1 id="exploreTitle">지구본을 돌려 <br /><em>나라를 찾아봐!</em></h1>
             <ul class="map-status-key" aria-label="지구본 색깔 안내">
               <li><i class="key-land is-locked" aria-hidden="true"></i>회색 = 아직 못 간 나라</li>
               <li><i class="key-land is-open" aria-hidden="true"></i>색깔 = 도장 받은 나라</li>
@@ -43,7 +43,7 @@
                 <h2 id="shortcutTitle">국기로 바로 가기</h2>
                 <div id="continentJump" class="continent-jump" aria-label="대륙으로 이동"></div>
               </div>
-              <div id="countryShortcutRail" class="country-shortcut-rail" aria-label="36개 나라 국기 목록"></div>
+              <div id="countryShortcutRail" class="country-shortcut-rail" aria-label="60개 나라 국기 목록"></div>
             </div>
           </aside>
 
@@ -80,7 +80,7 @@
               <h1 id="collectionTitle">나의 세계도감</h1>
               <p>퀴즈 3개를 다 풀면 그 나라 도장을 받아요.</p>
             </div>
-            <div class="collection-count"><span aria-hidden="true">★</span><strong id="collectionCount">0 / 36</strong><small>도장</small></div>
+            <div class="collection-count"><span aria-hidden="true">★</span><strong id="collectionCount">0 / 60</strong><small>도장</small></div>
           </header>
           <div id="collectionGrid" class="collection-grid" aria-label="대륙별 나라 도장"></div>
         </section>
@@ -116,6 +116,7 @@
     </div>
     <script src="./vendor/globe.gl.min.js"></script>
     <script src="./data/country-content.js"></script>
+    <script src="./data/country-content-extra.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

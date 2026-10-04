@@ -34,6 +34,8 @@
   function flagAsset(country) { return `./assets/flags/${country.id}.svg`; }
 
   const continentOrder = ["아시아", "유럽", "아프리카", "아메리카", "오세아니아"];
+  // 긴 나라 이름은 줄을 바꾸지 않고 글자를 줄여 한 줄에 넣는다
+  function nameClass(country) { return country.name.length >= 7 ? "name-long" : country.name.length >= 5 ? "name-mid" : ""; }
   function continentOf(country) { return country.region.startsWith("유럽") ? "유럽" : country.region; }
   function countriesByContinent() {
     return continentOrder
@@ -114,7 +116,7 @@
         canvas.tabIndex = -1;
         canvas.setAttribute("aria-hidden", "true");
       }
-      state.globe.pointOfView({ lat: 36.5, lng: 132.5, altitude: 1.34 }, 0);
+      state.globe.pointOfView({ lat: 36.5, lng: 132.5, altitude: 1.62 }, 0);
       const controls = state.globe.controls();
       controls.enableZoom = false;
       controls.enablePan = false;
@@ -158,7 +160,7 @@
   }
 
   function flyTo(country) {
-    if (state.globe) state.globe.pointOfView({ lat: country.lat, lng: country.lon, altitude: 1.45 }, 750);
+    if (state.globe) state.globe.pointOfView({ lat: country.lat, lng: country.lon, altitude: 1.62 }, 750);
   }
 
   function renderProgress() {
@@ -202,7 +204,7 @@
         <div class="shortcut-grid">${group.list.map(country => `
           <button type="button" data-country-shortcut="${country.id}" aria-label="${country.name} 아직 못 감 탐험하기">
             <img src="${flagAsset(country)}" width="64" height="48" alt="" aria-hidden="true" />
-            <span>${country.name}<small></small></span>
+            <span class="${nameClass(country)}">${country.name}<small></small></span>
           </button>`).join("")}</div>
       </section>`).join("");
     const jump = document.getElementById("continentJump");
@@ -221,9 +223,9 @@
       const cards = group.list.map((country, index) => {
         const tilt = [-4, 3, -2, 5, -3, 2][index % 6];
         if (state.discovered.has(country.id)) {
-          return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--tilt:${tilt}deg" aria-label="${country.name} 도장, 다시 보기"><span class="stamp"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3>${country.name}</h3><span class="stamp-ring" aria-hidden="true">${group.name} · 도착</span></span></button>`;
+          return `<button type="button" class="country-card is-found" data-open-country="${country.id}" style="--tilt:${tilt}deg" aria-label="${country.name} 도장, 다시 보기"><span class="stamp"><span class="card-icon" aria-hidden="true">${country.icon}</span><span class="card-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3 class="${nameClass(country)}">${country.name}</h3><span class="stamp-ring" aria-hidden="true">${group.name} · 도착</span></span></button>`;
         }
-        return `<div class="country-card is-locked" aria-label="아직 도장이 없는 ${country.name}"><span class="stamp-slot"><span class="locked-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3>${country.name}</h3></span></div>`;
+        return `<div class="country-card is-locked" aria-label="아직 도장이 없는 ${country.name}"><span class="stamp-slot"><span class="locked-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="64" height="48" alt="" /></span><h3 class="${nameClass(country)}">${country.name}</h3></span></div>`;
       }).join("");
       return `<section class="passport-page" style="--continent:${group.color}" aria-labelledby="page-${group.name}"><header><h2 id="page-${group.name}">${group.name}</h2><span>${foundCount} / ${group.list.length}</span></header><div class="stamp-grid">${cards}</div></section>`;
     }).join("");
@@ -319,7 +321,7 @@
   }
 
   function showSuccess(country) {
-    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><div class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b>${country.name}</b><small>${continentOf(country)} · 도착</small></div><p class="eyebrow">3문제를 모두 맞혔어요</p><h2 id="dialogTitle">${country.name} 도장 쾅!</h2><p>지구본에서 ${country.name} 땅이 색깔로 바뀌었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
+    els.dialogContent.innerHTML = `<section class="success-screen" style="--continent:${regionColors[continentOf(country)]}"><div class="success-stamp" aria-hidden="true"><span class="card-icon">${country.icon}</span><b class="${nameClass(country)}">${country.name}</b><small>${continentOf(country)} · 도착</small></div><p class="eyebrow">3문제를 모두 맞혔어요</p><h2 id="dialogTitle">${country.name} 도장 쾅!</h2><p>지구본에서 ${country.name} 땅이 색깔로 바뀌었어요.</p><button type="button" class="primary-button" id="continueExplore">${state.discovered.size === countries.length ? "완성한 도감 보기" : "다음 나라 찾기"}</button></section>`;
     document.getElementById("continueExplore").addEventListener("click", () => {
       const complete = state.discovered.size === countries.length;
       closeCountryDialog();
