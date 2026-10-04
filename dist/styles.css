@@ -913,6 +913,41 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
   .dialog-actions, .mission-feedback { flex-direction: column; align-items: stretch; }
 }
 
+/* ── 상세 보기: 우리나라 표시 · 비행 경로 ── */
+.map-home { fill: #f2a15a; stroke: var(--ink); stroke-linejoin: round; }
+.map-home-tag rect { fill: #fff4e6; stroke: #e07a2e; stroke-width: 1.5; }
+.map-home-tag text { fill: var(--ink); font-family: var(--font-ui); }
+.map-route { fill: none; stroke: var(--sea); stroke-linecap: round; opacity: .85; }
+.map-plane path { fill: var(--sea); stroke: #fff; stroke-width: 1.5; }
+
+/* ── 우리나라와 견주기 카드 ── */
+.compare-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 0; }
+.compare-card { min-width: 0; padding: 16px 18px; border-radius: 20px; background: #fff; box-shadow: 0 0 0 2px var(--paper-line); }
+.compare-card h3 { margin: 0 0 10px; font: 20px/1.2 var(--font-ui); font-weight: 400; }
+.compare-card p { margin: 10px 0 4px; font-size: 17px; font-weight: 700; line-height: 1.5; }
+.compare-card p b { color: var(--stamp); }
+.compare-card small { color: var(--ink-soft); font-size: 13px; font-weight: 700; }
+.size-compare svg { display: block; width: 100%; height: auto; }
+.size-there { stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.size-home { fill: #f2a15a; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.size-home-dot { fill: none; stroke: #e07a2e; stroke-width: 2.5; stroke-dasharray: 3 3; }
+.size-label { fill: var(--ink); font: 15px var(--font-ui); }
+.flight-hours { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.flight-from, .flight-to { font: 15px/1.2 var(--font-ui); white-space: nowrap; }
+.flight-blocks { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.flight-blocks i {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sea) 75%, #fff);
+  animation: hour-fill .3s calc(var(--i) * 60ms) ease-out both;
+}
+.flight-plane { font-size: 15px; line-height: 16px; }
+.compare-home { color: var(--ink-soft); }
+@keyframes hour-fill { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@media (max-width: 640px) {
+  .compare-row { grid-template-columns: 1fr; }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .country-shortcuts button[data-country-shortcut]:hover { border-color: var(--sea); }
   .round-button:hover, .guardian-button:hover, .globe-controls button:hover,

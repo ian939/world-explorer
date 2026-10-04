@@ -3,6 +3,7 @@
 
   // 나라마다 두 형제가 사진을 찍는 랜드마크 (그림: assets/landmarks/<id>.webp)
   // name = 화면에 보이는 이름, scene = 그림을 그릴 때 쓴 장면 설명
+  // 새 나라는 여기에 적고 tools/make-landmark-art.py 로 그린다 (docs/그림-만드는-법.md)
   window.WORLD_EXPLORER_LANDMARKS = {
     kr: { name: "경복궁 근정전", scene: "Geunjeongjeon hall of Gyeongbokgung Palace in Seoul with a stone haetae statue" },
     jp: { name: "후지산과 오층탑", scene: "snow-capped Mount Fuji with a red five-story pagoda and pink cherry blossoms" },

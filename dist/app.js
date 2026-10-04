@@ -42,6 +42,8 @@
   // 퀴즈를 다 맞히면 받는 그림: 두 형제가 그 나라 랜드마크 앞에서 찍은 크레파스 그림
   const landmarks = window.WORLD_EXPLORER_LANDMARKS || {};
   const capitals = window.WORLD_EXPLORER_CAPITALS || {};
+  const areas = window.WORLD_EXPLORER_AREA || {};
+  const HOME_ID = "kr"; // 크기·거리를 견주는 기준: 우리나라
   function landmarkName(country) { return landmarks[country.id] ? landmarks[country.id].name : country.place.split(" · ")[0]; }
   // 큰 그림은 성공 화면에만, 도감 카드·지구본 배지는 작은 그림(thumb)
   function artAsset(country, size = "thumb") { return size === "full" ? `./assets/landmarks/${country.id}.webp` : `./assets/landmarks/thumb/${country.id}.webp`; }
@@ -227,9 +229,15 @@
       return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
     });
   }
+  function featureRings(feature) {
+    const geometry = feature.geometry;
+    if (!geometry) return [];
+    const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
+    return polygons.map(polygon => polygon[0]);
+  }
   function buildWorldMap(geojson) {
     if (worldMap) return worldMap;
-    const byIso = new Map(), boxes = new Map();
+    const byIso = new Map(), boxes = new Map(), shapes = new Map();
     let base = "";
     geojson.features.forEach(feature => {
       if (feature.properties && feature.properties.CONTINENT === "Antarctica") return;
@@ -239,9 +247,10 @@
       if (countries.some(country => country.iso === iso)) {
         byIso.set(iso, (byIso.get(iso) || "") + d);
         boxes.set(iso, (boxes.get(iso) || []).concat(polygonBoxes(feature)));
+        shapes.set(iso, (shapes.get(iso) || []).concat(featureRings(feature)));
       }
     });
-    worldMap = { base, byIso, boxes };
+    worldMap = { base, byIso, boxes, shapes };
     return worldMap;
   }
   // 이름표를 붙일 범위: 나라 한가운데가 들어 있는 본토 + 그 가까이 있는 섬 (멀리 떨어진 해외 땅은 뺀다)
@@ -265,12 +274,21 @@
     // 이름표를 붙일 때 나라 모양과 띄울 거리
     const rx = Math.max(16, (area.x1 - area.x0) / 2 + 8), ry = Math.max(16, (area.y1 - area.y0) / 2 + 8);
     // 폰처럼 좁은 화면은 나라 주변을 확대 (나라와 이름표가 다 들어오게)
+    const home = country.id !== HOME_ID ? capitals[HOME_ID] : null;
+    const homeX = home ? Number(mapX(home.lon)) : 0, homeY = home ? Number(mapY(home.lat)) : 0;
     let vx = 0, vy = 0, vw = MAP_W, vh = MAP_H;
     if (window.innerWidth < 640) {
-      vw = Math.min(MAP_W, Math.max(MAP_W / 2, rx * 2 + 120, (ry * 2 + 160) * MAP_W / MAP_H));
+      // 우리나라가 가까우면 같이 보이게 범위를 넓힌다
+      const box = { ...area };
+      if (home && Math.abs(homeX - ex) < MAP_W * 0.35) {
+        box.x0 = Math.min(box.x0, homeX); box.x1 = Math.max(box.x1, homeX);
+        box.y0 = Math.min(box.y0, homeY); box.y1 = Math.max(box.y1, homeY);
+      }
+      const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+      vw = Math.min(MAP_W, Math.max(MAP_W / 2, box.x1 - box.x0 + 136, (box.y1 - box.y0 + 176) * MAP_W / MAP_H));
       vh = vw * MAP_H / MAP_W;
-      vx = Math.min(MAP_W - vw, Math.max(0, ex - vw / 2));
-      vy = Math.min(MAP_H - vh, Math.max(0, ey - vh / 2));
+      vx = Math.min(MAP_W - vw, Math.max(0, cx - vw / 2));
+      vy = Math.min(MAP_H - vh, Math.max(0, cy - vh / 2));
     }
     // 이름표: 나라 위, 자리가 없으면 아래
     // 이름표·선 굵기는 화면에서 비슷한 크기로 보이게 (폰은 지도가 작게 보이므로 더 키운다)
@@ -284,7 +302,7 @@
 
     // 수도: 빨간 핀 + "수도 ○○" 이름표 (핀 오른쪽, 자리가 없으면 왼쪽)
     const capital = capitals[country.id];
-    let capitalSvg = "";
+    let capitalSvg = "", capBox = null;
     if (capital) {
       const px = Number(mapX(capital.lon)), py = Number(mapY(capital.lat));
       const pin = 1.1 * scale;
@@ -297,7 +315,8 @@
       // 나라 이름표와 겹치면 나라 이름표를 수도 이름표 위(자리가 없으면 아래)로 비킨다
       const overlap = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
       const pinTop = py - 34 * pin;
-      if (overlap(tagX, tagY, tagW, tagH, Math.min(capX, px - 12 * pin), Math.min(capY, pinTop), capW + 24 * pin, capH + 34 * pin)) {
+      capBox = [Math.min(capX, px - 12 * pin), Math.min(capY, pinTop), capW + 24 * pin, capH + 34 * pin];
+      if (overlap(tagX, tagY, tagW, tagH, ...capBox)) {
         tagY = Math.min(capY, pinTop) - 8 * scale - tagH;
         if (tagY < vy + 4 * scale) tagY = Math.max(capY + capH, py) + 10 * scale;
       }
@@ -311,16 +330,151 @@
         <text x="${n(capX + capPad)}" y="${n(capY + capH / 2)}" dominant-baseline="central" style="font-size:${n(capFont)}px"><tspan class="map-capital-label">수도</tspan> ${capital.name}</text></g>
       </g>`;
     }
+    // 우리나라: 따로 색칠 + "우리나라" 이름표, 서울에서 그 나라 수도까지 비행기가 날아가는 점선
+    let homeSvg = "", routeSvg = "";
+    if (home) {
+      const homeIso = (countries.find(item => item.id === HOME_ID) || {}).iso;
+      const hFont = 16 * scale, hH = 28 * scale, hPad = 8 * scale;
+      const hW = hPad * 2 + 5 * hFont;
+      let hX = homeX - hW / 2, hY = homeY + 22 * scale;
+      const overlap = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
+      const blocked = (x, y) => overlap(x, y, hW, hH, tagX, tagY, tagW, tagH) || (capBox && overlap(x, y, hW, hH, ...capBox));
+      if (blocked(hX, hY)) { hX = homeX - hW - 14 * scale; hY = homeY - hH / 2; }
+      if (blocked(hX, hY)) { hX = homeX - hW / 2; hY = homeY - 30 * scale - hH; }
+      homeSvg = `<g class="map-home-tag" data-fit="center" data-pad="${n(hPad)}" data-lead="0">
+        <rect x="${n(hX)}" y="${n(hY)}" width="${n(hW)}" height="${n(hH)}" rx="${n(hH / 2)}" />
+        <text x="${n(hX + hPad)}" y="${n(hY + hH / 2)}" dominant-baseline="central" style="font-size:${n(hFont)}px">🏠 우리나라</text>
+      </g>`;
+      if (capital) {
+        const sx = homeX, sy = homeY;
+        let tx = Number(mapX(capital.lon));
+        const ty = Number(mapY(capital.lat));
+        // 지도 끝을 넘어가는 쪽이 더 가까우면 (예: 미국) 오른쪽 끝으로 나가 왼쪽 끝에서 들어온다
+        let wrap = 0;
+        if (tx - sx > MAP_W / 2) { tx -= MAP_W; wrap = MAP_W; } else if (sx - tx > MAP_W / 2) { tx += MAP_W; wrap = -MAP_W; }
+        const dx = tx - sx, dy = ty - sy, len = Math.max(1, Math.hypot(dx, dy));
+        const bend = Math.min(150, len * 0.28);
+        let cx = (sx + tx) / 2 - dy / len * bend, cy = (sy + ty) / 2 + dx / len * bend;
+        if (cy > (sy + ty) / 2) { cx = (sx + tx) / 2 + dy / len * bend; cy = (sy + ty) / 2 - dx / len * bend; } // 위로 휘게
+        const d = `M${n(sx)} ${n(sy)}Q${n(cx)} ${n(cy)} ${n(tx)} ${n(ty)}`;
+        const route = `<path class="map-route" d="${d}" style="stroke-width:${n(3 * scale)};stroke-dasharray:${n(9 * scale)} ${n(7 * scale)}" />
+          <g class="map-plane"><path d="M15 0L-5-4-9-13-13-13-10-4-15-3-15 3-10 4-13 13-9 13-5 4Z" transform="scale(${(scale * 1.3).toFixed(2)})" />
+            <animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto" path="${d}" /></g>`;
+        routeSvg = `<g class="map-route-group">${route}</g>` + (wrap ? `<g class="map-route-group" transform="translate(${wrap} 0)">${route}</g>` : "");
+      }
+    }
     return `<svg viewBox="${n(vx)} ${n(vy)} ${n(vw)} ${n(vh)}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
       <rect class="map-sea" width="${MAP_W}" height="${MAP_H}" />
       <path class="map-land" d="${map.base}" />
-      <path class="map-here" d="${map.byIso.get(country.iso) || ""}" style="stroke-width:${n(3 * scale)}" />
+      ${home ? `<path class="map-home" d="${map.byIso.get((countries.find(item => item.id === HOME_ID) || {}).iso) || ""}" style="stroke-width:${n(1.5 * scale)}" />` : ""}
+      <path class="map-here" d="${map.byIso.get(country.iso) || ""}" style="stroke-width:${n(3 * scale)}" />${routeSvg}
       <g class="map-tag" data-fit="center" data-pad="${n(pad)}" data-lead="${n(pad + flagW)}">
         <rect x="${n(tagX)}" y="${n(tagY)}" width="${n(tagW)}" height="${n(tagH)}" rx="${n(tagH / 2)}" />
         <image href="${flagAsset(country)}" x="${n(tagX + pad)}" y="${n(tagY + (tagH - flagH) / 2)}" width="${n(flagW)}" height="${n(flagH)}" preserveAspectRatio="xMidYMid slice" />
         <text x="${n(tagX + pad * 2 + flagW)}" y="${n(tagY + tagH / 2)}" dominant-baseline="central" style="font-size:${n(font)}px">${country.name}</text>
-      </g>${capitalSvg}
+      </g>${capitalSvg}${homeSvg}
     </svg>`;
+  }
+
+  // ── 우리나라와 견주기: 크기(같은 축척의 땅 모양) · 거리(비행기 시간) ──
+  // 땅 모양: 나라 가운데를 기준으로 경도를 cos(위도)만큼 줄여 펼치면 넓이 비율이 거의 맞는다
+  function countryOutline(country) {
+    const rings = (worldMap.shapes.get(country.iso) || []);
+    const rad = Math.PI / 180, k = Math.cos(country.lat * rad);
+    const flat = rings.map(ring => ring.map(([lon, lat]) => {
+      let d = lon - country.lon;
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      return [d * k, country.lat - lat];
+    }));
+    if (!flat.length) return null;
+    // 본토에서 멀리 떨어진 해외 땅(알래스카·하와이, 프랑스령 기아나 등)은 뺀다
+    const middle = ring => [ring.reduce((sum, p) => sum + p[0], 0) / ring.length, ring.reduce((sum, p) => sum + p[1], 0) / ring.length];
+    const span = ring => { const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]); return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)); };
+    const main = flat.reduce((best, ring) => Math.hypot(...middle(ring)) < Math.hypot(...middle(best)) ? ring : best);
+    const [mx, my] = middle(main), reach = Math.max(span(main) * 0.8, 10);
+    const kept = flat.filter(ring => { const [x, y] = middle(ring); return Math.hypot(x - mx, y - my) <= reach; });
+    const xs = kept.flat().map(p => p[0]), ys = kept.flat().map(p => p[1]);
+    return { rings: kept, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  }
+  function outlinePath(outline, scale, ox, oy) {
+    return outline.rings.map(ring => "M" + ring.map(([x, y]) => `${((x - outline.x0) * scale + ox).toFixed(1)} ${((y - outline.y0) * scale + oy).toFixed(1)}`).join("L") + "Z").join("");
+  }
+  function sizeCompareSvg(country) {
+    const homeCountry = countries.find(item => item.id === HOME_ID);
+    const home = homeCountry && countryOutline(homeCountry);
+    const there = country.id === HOME_ID ? null : countryOutline(country);
+    if (!home) return "";
+    const W = 340, H = 170, gap = 26;
+    if (!there) {
+      // 우리나라를 열었을 때: 대한민국 땅 하나를 작은 나라(일본)와 큰 나라(중국) 사이에 두고 보여 준다
+      const pick = id => { const item = countries.find(c => c.id === id); return item && countryOutline(item); };
+      const jp = pick("jp"), cn = pick("cn");
+      if (!jp || !cn) return "";
+      const scale = Math.min((W - 60) / ((cn.x1 - cn.x0) + (jp.x1 - jp.x0) + (home.x1 - home.x0)), (H - 34) / (cn.y1 - cn.y0));
+      const base = H - 30; let x = 4; let out = "";
+      for (const [shape, name, cls, color] of [[cn, "중국", "size-there", "#d96a69"], [jp, "일본", "size-there", "#ea6f8a"], [home, "대한민국", "size-home", ""]]) {
+        const w = (shape.x1 - shape.x0) * scale, h = (shape.y1 - shape.y0) * scale;
+        out += `<path class="${cls}" ${color ? `style="fill:${color}"` : ""} d="${outlinePath(shape, scale, x, base - h)}" /><text class="size-label" x="${(x + w / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${name}</text>`;
+        x += w + 26;
+      }
+      return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${out}</svg>`;
+    }
+    // 큰 나라에 맞춰 축척을 정하고, 우리나라도 같은 축척으로 그린다
+    const tw = there.x1 - there.x0, th = there.y1 - there.y0, hw = home.x1 - home.x0, hh = home.y1 - home.y0;
+    const scale = Math.min((W - gap - 70) / tw, (H - 34) / th);
+    const tW = tw * scale, tH = th * scale, hW = hw * scale, hH = hh * scale;
+    const base = H - 30; // 두 땅의 아래쪽을 맞춘다
+    const tX = 4, hX = tX + tW + gap;
+    const tiny = hW < 6 && hH < 6;
+    return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">
+      <path class="size-there" style="fill:${country.accent}" d="${outlinePath(there, scale, tX, base - tH)}" />
+      <text class="size-label" x="${(tX + tW / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${country.name}</text>
+      ${tiny ? `<circle class="size-home-dot" cx="${(hX + hW / 2).toFixed(1)}" cy="${(base - hH / 2).toFixed(1)}" r="9" />` : ""}
+      <path class="size-home" d="${outlinePath(home, scale, hX, base - hH)}" />
+      <text class="size-label" x="${(hX + Math.max(hW, 2) / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">대한민국</text>
+    </svg>`;
+  }
+  function areaText(km2) {
+    return km2 >= 10000 ? `약 ${Math.round(km2 / 10000).toLocaleString()}만 ㎢` : `약 ${km2.toLocaleString()} ㎢`;
+  }
+  function sizeSentence(country) {
+    const here = areas[country.id], home = areas[HOME_ID];
+    if (!here || !home) return "";
+    if (country.id === HOME_ID) return `우리나라 넓이는 ${areaText(home)}예요. 이웃 나라와 같은 축척으로 견줘 봐요.`;
+    const ratio = here / home;
+    if (ratio < 0.95) return `대한민국의 약 ${Math.round(ratio * 10)}/10 크기예요.`;
+    if (ratio < 1.05) return "대한민국과 거의 같은 크기예요.";
+    const times = ratio < 10 ? Math.round(ratio * 10) / 10 : Math.round(ratio);
+    return `대한민국 땅 <b>약 ${times}개</b>를 합친 만큼 넓어요.`;
+  }
+  // 서울에서 그 나라 수도까지 곧장 날아갈 때 (비행기 시속 약 800km + 뜨고 내리는 시간)
+  function flightInfo(country) {
+    const from = capitals[HOME_ID], to = capitals[country.id];
+    if (!from || !to || country.id === HOME_ID) return null;
+    const rad = Math.PI / 180;
+    const a = Math.sin((to.lat - from.lat) * rad / 2) ** 2 + Math.cos(from.lat * rad) * Math.cos(to.lat * rad) * Math.sin((to.lon - from.lon) * rad / 2) ** 2;
+    const km = Math.round(6371 * 2 * Math.asin(Math.sqrt(a)) / 10) * 10;
+    return { km, hours: Math.max(1, Math.round(km / 800 + 0.5)), to };
+  }
+  function compareHtml(country) {
+    const flight = flightInfo(country);
+    const blocks = flight ? Array.from({ length: flight.hours }, (_, i) => `<i style="--i:${i}"></i>`).join("") : "";
+    return `<div class="compare-row">
+        <section class="compare-card">
+          <h3><span aria-hidden="true">📏</span> 얼마나 클까?</h3>
+          <div id="sizeCompare" class="size-compare" role="img" aria-label="같은 축척으로 그린 ${country.name}${batchim(country.name) ? "과" : "와"} 대한민국 땅"></div>
+          <p>${sizeSentence(country)}</p>
+          ${country.id !== HOME_ID && areas[country.id] ? `<small>넓이 ${areaText(areas[country.id])} · 대한민국 ${areaText(areas[HOME_ID])}</small>` : ""}
+        </section>
+        <section class="compare-card">
+          <h3><span aria-hidden="true">✈️</span> 얼마나 멀까?</h3>
+          ${flight ? `<div class="flight-hours" role="img" aria-label="비행기로 약 ${flight.hours}시간"><span class="flight-from">🏠 서울</span><span class="flight-blocks">${blocks}<span class="flight-plane" aria-hidden="true">✈️</span></span><span class="flight-to">${flight.to.name}</span></div>
+          <p>서울에서 곧장 날아가면 비행기로 <b>약 ${flight.hours}시간</b> 걸려요.</p>
+          <small>한 칸이 1시간 · 거리 약 ${flight.km.toLocaleString()}km · 비행기를 갈아타면 더 걸려요</small>`
+            : `<p class="compare-home">🏠 여기가 우리나라예요! 다른 나라를 열면 서울에서 비행기로 얼마나 걸리는지 보여 줘요.</p>`}
+        </section>
+      </div>`;
   }
   // 이름표 상자를 실제 글자 폭에 맞춘다 (영문·점이 섞인 이름은 어림값이 틀리므로)
   function fitMapLabels(holder) {
@@ -343,6 +497,8 @@
     loadGeojson().then(geojson => {
       buildWorldMap(geojson);
       if (state.activeCountry === country && holder.isConnected) { holder.innerHTML = whereMapSvg(country); fitMapLabels(holder); }
+      const sizeHolder = document.getElementById("sizeCompare");
+      if (state.activeCountry === country && sizeHolder) sizeHolder.innerHTML = sizeCompareSvg(country);
     }).catch(() => { holder.classList.add("is-empty"); });
   }
 
@@ -617,6 +773,7 @@
           <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
           <figcaption>색칠된 곳이 ${country.name}${ieyo(country.name)}${capitals[country.id] ? ` · <span aria-hidden="true">📍</span> 핀이 수도 ${capitals[country.id].name}` : ""}</figcaption>
         </figure>
+        ${compareHtml(country)}
         <dl class="country-quickfacts" style="--facts:${country.quickFacts.length}">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
         ${country.cards ? guideCardsHtml(country, found) : `<div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
         <aside class="remember-strip"><span aria-hidden="true">⭐</span><div><strong>이것만은 기억해요</strong><p>${country.remember}</p></div></aside>`}
