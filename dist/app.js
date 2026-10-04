@@ -255,7 +255,7 @@
       <section style="--country-tint:${country.color};--country-accent:${country.accent}">
         <div class="country-hero">
           <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="640" height="480" alt="" /></div>
-          <div><p class="eyebrow">${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.region} · ${country.story}</p></div>
+          <div><p class="eyebrow">${country.region} · ${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.story}</p></div>
         </div>
         <dl class="country-quickfacts">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
         <div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
@@ -497,7 +497,33 @@
     if (image.complete && image.naturalWidth) { image.hidden = false; fallback.hidden = true; }
   }
 
+  // 패드가 옛 파일을 붙들고 있어도 새 버전이 나온 걸 알 수 있게 한다
+  const APP_VERSION = document.querySelector('meta[name="app-version"]')?.content || "";
+  let lastUpdateCheck = 0;
+  async function checkUpdate() {
+    if (location.protocol === "file:" || !navigator.onLine || Date.now() - lastUpdateCheck < 60000) return;
+    lastUpdateCheck = Date.now();
+    try {
+      const response = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: "no-store" });
+      const latest = (await response.text()).match(/name="app-version" content="([^"]+)"/)?.[1];
+      if (latest && latest !== APP_VERSION && els.updateButton.hidden) {
+        els.updateButton.hidden = false;
+        showToast("새 버전이 나왔어요! 위쪽 🎁 버튼을 눌러 주세요.");
+      }
+    } catch (_) { /* 연결이 끊겼으면 다음에 다시 확인 */ }
+  }
+  function setupUpdateCheck() {
+    els.updateButton = document.getElementById("updateButton");
+    document.getElementById("appVersion").textContent = `v${APP_VERSION}`;
+    els.updateButton.addEventListener("click", () => location.replace(`${location.pathname}?v=${Date.now()}`));
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
+    window.addEventListener("online", checkUpdate);
+    window.setInterval(checkUpdate, 600000);
+    checkUpdate();
+  }
+
   setupKidSafeGuards();
+  setupUpdateCheck();
   renderCountryShortcuts();
   bindEvents();
   setupMascot();

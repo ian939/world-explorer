@@ -162,6 +162,8 @@ button:active { transform: translateY(2px) scale(.98); }
   background: var(--paper);
   box-shadow: var(--shadow-press);
 }
+.update-button { min-height: 48px; padding: 0 16px; border: 0; border-radius: 16px; color: var(--ink); background: var(--sun); box-shadow: 0 4px 0 #d9a21c; font: 16px/1 var(--font-ui); }
+.app-version { position: fixed; z-index: 40; left: max(10px, env(safe-area-inset-left)); bottom: calc(var(--safe-bottom) + 2px); margin: 0; color: rgba(21,50,92,.45); font: 11px/1 var(--font-body); pointer-events: none; }
 .round-button { width: 48px; border-radius: 50%; font-size: 20px; }
 .guardian-button { padding: 0 16px; border-radius: 16px; font: 16px/1 var(--font-ui); color: var(--ink-soft); }
 
@@ -657,6 +659,7 @@ button.country-card:hover .stamp, button.country-card:focus-visible .stamp { tra
   .atlas-panel h1 br { display: none; }
   .map-status-key { margin: 8px 4px 10px; }
   .shortcut-head { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .shortcut-grid { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -680,6 +683,7 @@ button.country-card:hover .stamp, button.country-card:focus-visible .stamp { tra
   .globe-controls { bottom: auto; top: calc(min(100vw - 24px, 60dvh) - 40px); }
   .globe-controls span { display: none; }
   .bottom-nav { width: calc(100% - 20px); }
+  .app-version { bottom: calc(var(--nav-h) + var(--safe-bottom) + 4px); }
   .view-tab { flex: 1; min-width: 0; padding-inline: 8px; font-size: 16px; }
   .atlas-heading { flex-direction: column; align-items: flex-start; }
   .stamp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
