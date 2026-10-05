@@ -859,6 +859,34 @@ button.country-card:hover .memory, button.country-card:focus-visible .memory { t
 @keyframes confetti-fall { to { transform: translate(var(--drift), 110vh) rotate(760deg); } }
 
 /* ── 세로 패드 · 좁은 화면: 지구본 위, 국기 목록 아래 ── */
+/* ── 넓은 화면: 위쪽 막대·패널·지구본을 가운데 1280px 안에 모은다 ── */
+:root { --page-max: 1280px; --page-side: max(20px, calc((100vw - var(--page-max)) / 2 + 20px)); }
+.topbar { inset: max(12px, env(safe-area-inset-top)) var(--page-side) auto; }
+.explore-view {
+  max-width: var(--page-max);
+  margin-inline: auto;
+  grid-template-columns: clamp(300px, 28vw, 360px) minmax(0, 1fr);
+  /* 아래 탭과 붙지 않게 조금 띄운다 */
+  height: calc(100dvh - var(--nav-h) - var(--safe-bottom) - 10px);
+}
+/* 낮은 화면(노트북·화면 배율 125% 등): 조금씩 줄여 한 화면에 다 들어오게 */
+@media (min-width: 901px) and (max-height: 780px) {
+  :root { --topbar-h: 64px; --nav-h: 66px; }
+  .brand-mark { width: 40px; height: 40px; }
+  .brand-name { font-size: 22px; }
+  .passport-progress { min-height: 46px; }
+  .round-button, .guardian-button { min-height: 44px; }
+  .round-button { width: 44px; }
+  .atlas-panel { padding: 16px 16px 10px; border-radius: 24px; }
+  .atlas-panel h1 { font-size: 28px; }
+  .map-status-key { margin: 8px 4px 10px; }
+  .country-shortcuts { padding-top: 8px; }
+  .globe-controls button { width: 48px; height: 48px; font-size: 30px; }
+  .view-tab { min-height: 46px; font-size: 16px; }
+  .speech-bubble { margin-bottom: 56px; }
+  .guide-dock img, .mascot-fallback { width: clamp(96px, 10vw, 140px); }
+}
+
 @media (orientation: portrait), (max-width: 900px) {
   .explore-view {
     grid-template-columns: minmax(0, 1fr);
