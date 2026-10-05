@@ -442,39 +442,23 @@
   function areaText(km2) {
     return km2 >= 10000 ? `약 ${Math.round(km2 / 10000).toLocaleString()}만 ㎢` : `약 ${km2.toLocaleString()} ㎢`;
   }
-  function sizeSentence(country) {
-    const here = areas[country.id], home = areas[HOME_ID];
-    if (!here || !home) return "";
-    if (country.id === HOME_ID) return `우리나라 넓이는 ${areaText(home)}예요. 이웃 나라와 같은 축척으로 견줘 봐요.`;
-    const ratio = here / home;
-    if (ratio < 0.95) return `대한민국의 약 ${Math.round(ratio * 10)}/10 크기예요.`;
-    if (ratio < 1.05) return "대한민국과 거의 같은 크기예요.";
-    const times = ratio < 10 ? Math.round(ratio * 10) / 10 : Math.round(ratio);
-    return `대한민국 땅 <b>약 ${times}개</b>를 합친 만큼 넓어요.`;
-  }
-  // 서울에서 그 나라 수도까지 곧장 날아갈 때 (비행기 시속 약 800km + 뜨고 내리는 시간)
-  function flightInfo(country) {
-    const from = capitals[HOME_ID], to = capitals[country.id];
-    if (!from || !to || country.id === HOME_ID) return null;
-    const rad = Math.PI / 180;
-    const a = Math.sin((to.lat - from.lat) * rad / 2) ** 2 + Math.cos(from.lat * rad) * Math.cos(to.lat * rad) * Math.sin((to.lon - from.lon) * rad / 2) ** 2;
-    const km = Math.round(6371 * 2 * Math.asin(Math.sqrt(a)) / 10) * 10;
-    return { km, hours: Math.max(1, Math.round(km / 800 + 0.5)), to };
-  }
+  // 크기·비행시간 문장은 읽어 주는 소리와 같아야 해서 speech-texts.js 의 facts 에서 가져온다
+  function sizeSentence(country) { const size = SPEECH.facts(country).size; return size ? size.html : ""; }
+  function flightInfo(country) { return SPEECH.facts(country).flight || null; }
   function compareHtml(country) {
     const flight = flightInfo(country);
     const blocks = flight ? Array.from({ length: flight.hours }, (_, i) => `<i style="--i:${i}"></i>`).join("") : "";
     return `<div class="compare-row">
-        <section class="compare-card">
+        <section class="compare-card" data-read="size">
           <h3><span aria-hidden="true">📏</span> 얼마나 클까?</h3>
           <div id="sizeCompare" class="size-compare" role="img" aria-label="같은 축척으로 그린 ${country.name}${batchim(country.name) ? "과" : "와"} 대한민국 땅"></div>
           <p>${sizeSentence(country)}</p>
           ${country.id !== HOME_ID && areas[country.id] ? `<small>넓이 ${areaText(areas[country.id])} · 대한민국 ${areaText(areas[HOME_ID])}</small>` : ""}
         </section>
-        <section class="compare-card">
+        <section class="compare-card" data-read="flight">
           <h3><span aria-hidden="true">✈️</span> 얼마나 멀까?</h3>
           ${flight ? `<div class="flight-hours" role="img" aria-label="비행기로 약 ${flight.hours}시간"><span class="flight-from">🏠 서울</span><span class="flight-blocks">${blocks}<span class="flight-plane" aria-hidden="true">✈️</span></span><span class="flight-to">${flight.to.name}</span></div>
-          <p>서울에서 곧장 날아가면 비행기로 <b>약 ${flight.hours}시간</b> 걸려요.</p>
+          <p>${flight.html}</p>
           <small>한 칸이 1시간 · 거리 약 ${flight.km.toLocaleString()}km · 비행기를 갈아타면 더 걸려요</small>`
             : `<p class="compare-home">🏠 여기가 우리나라예요! 다른 나라를 열면 서울에서 비행기로 얼마나 걸리는지 보여 줘요.</p>`}
         </section>
@@ -768,28 +752,32 @@
     const found = state.discovered.has(country.id);
     els.dialogContent.innerHTML = `
       <section style="--country-tint:${country.color};--country-accent:${country.accent}">
-        <div class="country-hero">
+        <div class="read-bar">
+          <button type="button" class="speak-button read-button" id="speakCountry" aria-pressed="false"><span class="read-icon" aria-hidden="true">🔊</span><span class="read-label">소리로 소개 듣기</span></button>
+          <span class="read-tip" id="readTip">들으면서 아래로 내려가요</span>
+        </div>
+        <div class="country-hero" data-read="hero">
           <div class="country-flag" aria-hidden="true"><img src="${flagAsset(country)}" width="640" height="480" alt="" /></div>
           <div class="hero-text"><p class="eyebrow">${country.region} · ${found ? "도감 다시 보기" : "새로운 나라 발견"}</p><h2 id="dialogTitle">${country.name}</h2><p>${country.story}</p></div>
           ${found ? `<button type="button" class="hero-art" data-art data-view-art="${country.id}" aria-label="${landmarkName(country)}에서 찍은 그림 크게 보기">${artImg(country)}<span class="art-fallback" aria-hidden="true">${country.icon}</span><span class="zoom-chip" aria-hidden="true">🔍</span></button>` : ""}
         </div>
-        <figure class="where-map" style="--here:${country.accent}">
+        <figure class="where-map" data-read="map" style="--here:${country.accent}">
           <div id="whereMap" class="where-map-canvas" style="aspect-ratio:${MAP_W} / ${MAP_H}" role="img" aria-label="세계지도에 표시한 ${country.name}의 자리"></div>
-          <figcaption>색칠된 곳이 ${country.name}${ieyo(country.name)}${capitals[country.id] ? ` · <span aria-hidden="true">📍</span> 핀이 수도 ${capitals[country.id].name}` : ""}</figcaption>
+          <figcaption>색칠된 곳이 ${country.name}${ieyo(country.name)}.${capitals[country.id] ? ` <span aria-hidden="true">📍</span> 빨간 핀이 수도 ${capitals[country.id].name}${ieyo(capitals[country.id].name)}.` : ""}</figcaption>
         </figure>
         ${compareHtml(country)}
         <dl class="country-quickfacts" style="--facts:${country.quickFacts.length}">${country.quickFacts.map(fact => `<div><dt>${fact[0]}</dt><dd>${fact[1]}</dd></div>`).join("")}</dl>
         ${country.cards ? guideCardsHtml(country, found) : `<div class="learning-grid">${country.chapters.map(chapter => `<article class="learning-card"><div class="learning-title"><span aria-hidden="true">${chapter.icon}</span><h3>${chapter.title}</h3></div><p>${chapter.summary}</p><ul>${chapter.details.map(detail => `<li>${detail}</li>`).join("")}</ul></article>`).join("")}</div>
         <aside class="remember-strip"><span aria-hidden="true">⭐</span><div><strong>이것만은 기억해요</strong><p>${country.remember}</p></div></aside>`}
         <div class="dialog-actions">
-          <button type="button" class="speak-button" id="speakCountry">🔊 전체 이야기 듣기</button>
           <button type="button" class="primary-button" id="startMission">${found ? "퀴즈 다시 풀기" : `${country.missions.length}문제 퀴즈 시작`}</button>
         </div>
       </section>`;
     renderWhereMap(country);
     bindArtButtons();
     document.getElementById("speakCountry").addEventListener("click", () => {
-      listen(SPEECH.story(country));
+      if (reading.active) { stopSpeaking(); return; }
+      listen(SPEECH.story(country), { follow: true });
     });
     els.dialogContent.querySelectorAll("[data-greet]").forEach(button => button.addEventListener("click", () => {
       const line = country.greet.lines[Number(button.dataset.greet)];
@@ -804,12 +792,12 @@
   function guideCardsHtml(country, found) {
     const greet = country.greet;
     const greetHtml = greet ? `
-        <section class="greet-card" aria-label="인사 따라 하기">
+        <section class="greet-card" data-read="greet" aria-label="인사 따라 하기">
           <div class="learning-title"><span aria-hidden="true">👋</span><div><small>인사 따라 하기</small><h3>눌러서 들어 보세요</h3></div></div>
           <div class="greet-lines">${greet.lines.map((line, i) => `<button type="button" class="greet-line" data-greet="${i}"><span class="greet-native" lang="${greet.lang}">${line.text}</span><span class="greet-say">${line.say}</span><span class="greet-mean">“${line.mean}”</span><span class="greet-play" aria-hidden="true">🔊</span></button>`).join("")}</div>
           ${greet.note ? `<p class="greet-note">${greet.note}</p>` : ""}
         </section>` : "";
-    const cardHtml = card => `<article class="learning-card guide-card${card.wide ? " is-wide" : ""}">
+    const cardHtml = (card, i) => `<article class="learning-card guide-card${card.wide ? " is-wide" : ""}" data-read="card-${i}">
           <div class="learning-title"><span aria-hidden="true">${card.icon}</span><div><small>${card.label}</small><h3>${card.title}</h3></div></div>
           ${card.label === "국기 속 비밀" ? `<figure class="guide-flag"><img src="${flagAsset(country)}" width="640" height="480" alt="${country.name} 국기" /></figure>` : ""}
           ${(card.lines || []).map(line => `<p>${keepDotted(line)}</p>`).join("")}${card.list ? `<ul>${card.list.map(item => `<li>${keepDotted(item)}</li>`).join("")}</ul>` : ""}
@@ -1000,28 +988,60 @@
   }
   let speechRun = 0;
   let currentUtterance = null;
+  // 소개 듣기: 지금 읽는 부분을 표시하고 화면을 그쪽으로 따라 내린다 (아이가 직접 넘기는 중이면 잠깐 기다린다)
+  const reading = { active: false, at: null, userScrollAt: 0 };
+  function setReading(active) {
+    reading.active = active;
+    const button = document.getElementById("speakCountry");
+    if (button) {
+      button.setAttribute("aria-pressed", String(active));
+      button.querySelector(".read-icon").textContent = active ? "⏸" : "🔊";
+      button.querySelector(".read-label").textContent = active ? "멈추기" : "소리로 소개 듣기";
+      button.classList.toggle("is-reading", active);
+    }
+    const tip = document.getElementById("readTip");
+    if (tip) tip.textContent = active ? "노란 테두리가 지금 읽는 곳이에요" : "들으면서 아래로 내려가요";
+    if (!active) markReading(null);
+  }
+  function markReading(at) {
+    reading.at = at;
+    els.dialogContent.querySelectorAll(".is-reading-now").forEach(el => el.classList.remove("is-reading-now"));
+    if (!at) return;
+    const target = els.dialogContent.querySelector(`[data-read="${at}"]`);
+    if (!target) return;
+    target.classList.add("is-reading-now");
+    if (Date.now() - reading.userScrollAt < 3500) return;
+    target.scrollIntoView({ block: target.offsetHeight > window.innerHeight * 0.6 ? "start" : "center", behavior: reduceMotion.matches ? "auto" : "smooth" });
+  }
+  function noteUserScroll() { if (reading.active) reading.userScrollAt = Date.now(); }
+  ["wheel", "touchmove"].forEach(type => document.addEventListener(type, noteUserScroll, { passive: true }));
+
   function stopSpeaking() {
+    if (reading.active) setReading(false);
     speechRun += 1;
     voicePlayer.onended = voicePlayer.onerror = null;
     voicePlayer.pause();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }
   // 🔊 버튼처럼 아이가 직접 들으려고 누른 것: 소리가 꺼져 있으면 켜고 읽는다
-  function listen(parts) {
+  function listen(parts, options) {
     if (!state.soundOn) setSound(true);
-    speakParts(parts);
+    speakParts(parts, options);
   }
 
   // 여러 조각을 한 조각씩 이어서 읽는다(한꺼번에 줄 세우면 기기에 따라 끈 뒤에도 남은 조각을 읽는다).
   // 미리 녹음한 소리(assets/voice/, 선희 + 원어 목소리)가 있으면 그걸 틀고, 없거나 못 틀면 기기 목소리로 읽는다.
-  function speakParts(parts) {
+  function speakParts(parts, options = {}) {
     stopSpeaking();
     if (!state.soundOn) return;
     const run = speechRun;
     const queue = parts.slice();
+    if (options.follow) setReading(true);
     const next = () => {
-      if (run !== speechRun || !state.soundOn || !queue.length) return;
+      if (run !== speechRun || !state.soundOn) return;
+      if (!queue.length) { if (options.follow) setReading(false); return; }
       const part = queue.shift();
+      if (options.follow && part.at && part.at !== reading.at) markReading(part.at);
       const src = recordedSrc(part);
       const device = () => { if (run === speechRun) speakDevice(part, next); };
       if (src) playRecorded(src, next, device); else device();

@@ -7,7 +7,7 @@ const vm = require("vm");
 const DATA = path.join(__dirname, "..", "dist", "data");
 const context = { window: {}, TextEncoder };
 vm.createContext(context);
-for (const file of ["country-content.js", "country-content-extra.js", "country-guide.js", "speech-texts.js"]) {
+for (const file of ["country-content.js", "country-content-extra.js", "country-guide.js", "capitals.js", "country-size.js", "speech-texts.js"]) {
   vm.runInContext(fs.readFileSync(path.join(DATA, file), "utf8"), context, { filename: file });
 }
 const countries = context.window.WORLD_EXPLORER_COUNTRIES;
